@@ -1,7 +1,7 @@
 {
-  "name": "klrmanual",
+  "name": "ggass",
   "private": true,
-  "description": "Personal, locally served service wiki for a 2006 (gen 1) Kawasaki KLR650, built from cited manual pages.",
+  "description": "Static site generator: HTML pages with a YAML header, light DOM custom elements, no client libraries.",
   "type": "module",
   "scripts": {
     "build": "node site/build.ts",

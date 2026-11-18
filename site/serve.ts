@@ -1,12 +1,11 @@
-// Local static server: dist/ at /, plus the page images and figure crops
-// from doc/ at /doc/. Local only: the site contains copyrighted manual pages
-// for personal use, so it binds to 127.0.0.1 and is never deployed.
+// Local static server for dist/. It binds to 127.0.0.1, so only this
+// computer can open the site.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
-import { extname, join, normalize, sep } from "node:path";
+import { extname, join, normalize } from "node:path";
 
-const ROOT = join(import.meta.dirname, "..");
-const PORT = Number(process.env.PORT ?? 4650);
+const DIST = join(import.meta.dirname, "..", "dist");
+const PORT = Number(process.env.PORT ?? 4000);
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".json": "application/json", ".jpg": "image/jpeg", ".png": "image/png", ".svg": "image/svg+xml",
@@ -14,10 +13,9 @@ const TYPES: Record<string, string> = {
 };
 
 function resolve(urlPath: string): string | undefined {
-  const clean = normalize(decodeURIComponent(urlPath.split("?")[0])).replace(/^([/\\])+/, "");
-  const [base, rel] = clean.startsWith(`doc${sep}`) && /^doc[\\/](pages|figures)[\\/]/.test(clean) ? [ROOT, clean] : [join(ROOT, "dist"), clean];
-  let file = join(base, rel);
-  if (!file.startsWith(base)) return undefined;
+  const rel = normalize(decodeURIComponent(urlPath.split("?")[0])).replace(/^([/\\])+/, "");
+  let file = join(DIST, rel);
+  if (!file.startsWith(DIST)) return undefined;
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, "index.html");
   return existsSync(file) ? file : undefined;
 }
@@ -44,4 +42,4 @@ createServer((req, res) => {
   }
   res.writeHead(200, headers);
   createReadStream(file).pipe(res);
-}).listen(PORT, "127.0.0.1", () => console.log(`KLR650 wiki on http://127.0.0.1:${PORT}`));
+}).listen(PORT, "127.0.0.1", () => console.log(`Site on http://127.0.0.1:${PORT}`));

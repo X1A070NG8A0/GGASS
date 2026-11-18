@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "klr-wiki",
+      "name": "site",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": ["site/serve.ts"],
-      "port": 4650
+      "port": 4000
     }
   ]
 }

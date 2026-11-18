@@ -1,4 +1,4 @@
-/* KLR Service Explorer stylesheet.
+/* Site stylesheet.
    Plain, readable text that is dense with links, in the manner of "better
    motherfucking website", with gwern-style popup windows.
    Layers, lowest first. A rule in a later layer wins over an earlier layer,
@@ -27,12 +27,11 @@
     --muted: light-dark(#6b6b66, #9a978f);
     --rule: light-dark(#d9d6cf, #3a3833);
     --link: light-dark(#1f4e8c, #8fb4e8);
-    --accent: light-dark(#a33a1f, #e08a6e);       /* always-replace parts, warnings */
+    --accent: light-dark(#a33a1f, #e08a6e);       /* warnings, the current step */
     --accent-bg: light-dark(#fbe9e3, #2e1d17);
-    --second: light-dark(#9a6b00, #d9ad4a);       /* replace-if-worn parts, cautions */
+    --second: light-dark(#9a6b00, #d9ad4a);       /* cautions, tabs */
     --second-bg: light-dark(#fbf3df, #2c2615);
     --note-bg: light-dark(#eef3f8, #1a2230);
-    --this-year: light-dark(#e7f2e4, #1c2a1a);
     --pop-bg: light-dark(#ffffff, #22211e);
     --sans: "TeX Gyre Heros", sans-serif;
     --mono: var(--sans);
@@ -47,8 +46,7 @@
   h1, h2, h3, h4 { line-height: 1.25; font-weight: 700; text-wrap: balance; }
   h1 { font-size: 1.9rem; margin: 1.2rem 0 .4rem; }
   h2 { font-size: 1.35rem; margin-top: 2rem; border-bottom: 1px solid var(--rule); padding-bottom: .2rem; }
-  h3, h2.sub { font-size: 1.1rem; margin-top: 1.4rem; }
-  h2.sub { border-bottom: 0; padding-bottom: 0; }
+  h3 { font-size: 1.1rem; margin-top: 1.4rem; }
   p, li { text-wrap: pretty; }
   a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
   code { font-family: var(--code); font-size: .9em; }
@@ -60,7 +58,7 @@
      JavaScript, and the text that only applies when it runs. */
   list-filter:not(:defined), site-search:not(:defined) { display: none; }
   /* Custom elements are inline by default. These wrap blocks. */
-  check-list, list-filter, site-search, bolt-sequence, mileage-picker { display: block; }
+  check-list, list-filter, site-search, step-sequence, section-tabs { display: block; }
   photo-zoom { display: contents; }
   body:has(check-list:not(:defined)) .ticks-hint { display: none; }
   /* Hidden on screen, read by screen readers. */
@@ -109,51 +107,14 @@
     a { font-weight: 600; display: block; }
     span { color: var(--muted); font-size: .9rem; }
   }
-  ul.frequent { columns: 2 16rem; }
-  .crumb, .provenance, .when { color: var(--muted); font-size: .85rem; }
+  .crumb { color: var(--muted); font-size: .85rem; }
   .toc { font-size: .92rem; }
-  ol.chapters > li { margin: .6rem 0; }
-  ul.secs, ol.secs { font-size: .92rem; }
-  ul.repairs > li, ul.errata > li { margin: .35rem 0; }
-  ul.errata > li p { margin: .2rem 0; }
-  .repair-cat h2 { font-size: 1.15rem; }
   .pager { text-align: center; }
   site-search .kind { color: var(--muted); }
 }
 
 @layer content {
-  /* Citations and dependency links. A link with data-pop opens a popup window. */
-  .cite {
-    white-space: nowrap; font: .72rem/1 var(--mono);
-    > a { color: var(--muted); text-decoration: none; border-bottom: 1px dotted var(--muted); }
-    > a::before { content: "["; }
-    > a::after { content: "]"; }
-    > a:hover { color: var(--link); }
-  }
-  .src, .ch, .years { font: .72rem var(--mono); color: var(--muted); }
-  .dep > a { text-decoration-style: dotted; }
-  .deps { font-size: .88rem; }
-  .deps .dep::before { content: "→ "; color: var(--muted); }
-  .needs { font-size: .92rem; .dep { margin-right: .6rem; } }
-  .lbl { color: var(--muted); }
-
-  /* Specification tables */
-  table.schedule {
-    td.x { text-align: center; font-weight: 700; font-size: 1.25em; line-height: 1; }
-    thead th { font-size: .8rem; vertical-align: bottom; }
-  }
-  tr.this-year { background: var(--this-year); }
-  /* Other model years: the muted color (about 5:1), not opacity, so the text stays readable. */
-  tr.other-year, tr.other-year *, .spec.other-year, .spec.other-year * { color: var(--muted); }
-  .flag { font: .7rem var(--mono); color: var(--second); border: 1px solid var(--second); padding: 0 .25rem; }
-  .std { white-space: nowrap; }
-  .limit { white-space: nowrap; color: var(--accent); }
-  .spec b { font-weight: 600; }
-
-  /* Procedures */
-  .op .when { padding-left: 1.2rem; font-size: .92rem; }
-  .summary { font-size: 1.02rem; }
-  .see { font-size: .9rem; }
+  /* Numbered steps, with notes, cautions and warnings as callouts. */
   .kind { font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .05em; }
   .steps {
     padding-left: 1.5rem;
@@ -164,14 +125,6 @@
     > li.caution { background: var(--second-bg); border-color: var(--second); }
     > li.warning { background: var(--accent-bg); border-color: var(--accent); }
   }
-  .gap { border: 1px dashed var(--second); padding: .3rem .6rem; font-size: .88rem; color: var(--muted); }
-  .conflict { margin: .4rem 0; }
-  .conflict-note { font-size: .9rem; margin: .2rem 0; }
-  .parallel {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .6rem;
-    blockquote { margin: 0; padding: .4rem .6rem; border: 1px solid var(--rule); border-top: 3px solid var(--second); font-size: .88rem; }
-  }
-  .conflict.agrees .parallel blockquote { border-top-color: var(--link); }
 
   /* Photos and drawn diagrams */
   .figs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .4rem 0 .6rem; }
@@ -190,8 +143,8 @@
     figcaption { font-size: .88rem; }
     .legend { padding-left: 1.2rem; margin: .4rem 0; }
   }
-  /* <bolt-sequence>: the current step shows in the drawing and the legend. */
-  bolt-sequence {
+  /* <step-sequence>: the current step shows in the drawing and the legend. */
+  step-sequence {
     .seqbar { font-size: .85rem; margin: .4rem 0; }
     .seqbar button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--rule); padding: .15rem .6rem; min-block-size: 24px; cursor: pointer; }
     .pt { cursor: default; }
@@ -211,31 +164,13 @@
   @container (width < 38rem) {
     figure.diagram { grid-template-columns: 1fr; }
   }
-
-  /* Community posts */
-  .post { border-bottom: 1px solid var(--rule); }
-  .post h3 { font-size: .9rem; font-family: var(--mono); }
-  .post-text { font-size: .92rem; white-space: normal; }
 }
 
 @layer components {
-  /* Boxes for specifications, parts and tools */
-  .box {
-    border: 1px solid var(--rule); padding: .2rem .9rem .6rem; margin: 1rem 0;
-    dl { display: grid; grid-template-columns: auto 1fr; gap: .2rem 1rem; margin: .3rem 0; font-size: .92rem; }
-    dt { color: var(--muted); }
-  }
-  .parts :is(h3, h4) { margin: .6rem 0 .2rem; font-size: .95rem; }
-  .parts-always :is(h3, h4) { color: var(--accent); }
-  .parts-inspect :is(h3, h4) { color: var(--second); }
-  .pnote { color: var(--muted); font-size: .85rem; }
-
   /* Checklists. <check-list> keeps the ticks and moves ticked items down. */
   .checklist {
     list-style: none; padding-left: 0;
     li { padding: .15rem .4rem; margin: .15rem 0; border-left: 4px solid var(--rule); }
-    li.part-always { border-left-color: var(--accent); background: var(--accent-bg); }
-    li.part-inspect { border-left-color: var(--second); background: var(--second-bg); }
     label { cursor: pointer; }
     input[type="checkbox"] { inline-size: 1.1rem; block-size: 1.1rem; vertical-align: -.2em; margin: 0 .15rem 0 0; }
     /* Ticked: the muted color (about 5:1) and a line through, not opacity. */
@@ -245,27 +180,8 @@
     }
   }
 
-  /* Tools */
-  ul.tools { margin: .3rem 0; padding-left: 1.1rem; font-size: .92rem; > li { margin: .25rem 0; } }
-  ul.toollist details { font-size: .88rem; ul { columns: 2 14rem; } }
-  .variants { font-size: .9em; }
-  .chips { display: inline-flex; flex-wrap: wrap; gap: .25rem; vertical-align: middle; }
-  .chip { font-size: .82rem; border: 1px solid var(--rule); border-radius: 3px; padding: 0 .4rem; background: var(--bg); }
-  table.vals {
-    width: auto; max-width: 100%; margin: .3rem 0 .5rem; font-size: .84rem;
-    th, td { padding: .12rem .6rem .12rem 0; border-bottom: 1px solid var(--rule); }
-    thead th { color: var(--muted); font-weight: 600; }
-    th[scope="row"] { font-weight: 400; }
-  }
-  details.vals { margin: .2rem 0 .4rem; font-size: .88rem; > summary { cursor: pointer; color: var(--link); } }
-  ul.subs {
-    list-style: none; padding-left: .6rem; margin: .15rem 0; font-size: .86rem; border-left: 2px solid var(--link);
-    li.warn { color: var(--fg); .lbl { color: var(--accent); } }
-  }
-
-  /* Service checklists: binder tabs over a page of task boxes */
-  .binder { margin: 1rem 0 1.5rem; max-width: 48rem; }
-  .binder-tabs {
+  /* <section-tabs>: binder tabs over a page */
+  section-tabs nav {
     display: flex; flex-wrap: wrap; gap: .25rem .2rem; align-items: flex-end;
     a {
       position: relative; top: 1px; font-size: .85rem; color: var(--fg); text-decoration: none;
@@ -275,14 +191,9 @@
       &[aria-current] { background: var(--bg); border-color: var(--rule); font-weight: 700; padding-block: .4rem .3rem; }
     }
   }
-  .binder-page {
+  .tab-page {
     border: 1px solid var(--rule); border-radius: 0 6px 6px 6px; background: var(--bg); padding: .2rem 1rem .6rem;
     h3 { margin: .6rem 0 .4rem; }
-  }
-  .task-box {
-    border: 1px solid var(--rule); border-radius: 4px; padding: .1rem .7rem .3rem; margin: .6rem 0;
-    h4 { margin: .4rem 0 .2rem; font-size: .92rem; color: var(--muted); }
-    &.own { border-color: var(--second); h4 { color: var(--fg); } }
   }
 }
 

@@ -74,7 +74,7 @@ class SiteSearch extends HTMLElement {
     if (!hits.length) {
       const li = document.createElement("li");
       li.className = "meta";
-      li.textContent = "Nothing cited matches that.";
+      li.textContent = "Nothing matches that.";
       out.append(li);
     }
   }

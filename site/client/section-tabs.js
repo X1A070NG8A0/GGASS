@@ -1,13 +1,13 @@
 // @ts-check
-// <mileage-picker> holds the binder tabs that link to the service pages
-// (/maintenance/<miles>.html and /maintenance/every-<miles>.html). A click
-// gets that page and puts its copy of the section that holds this picker in
-// place of the current one, with a cross-fade. The address changes, and the Back button
-// shows the earlier service. A modified click (Ctrl, Shift, Alt, Cmd) or a
-// failed request falls back to a normal page load. Without JavaScript, the
-// links open the mileage pages.
+// <section-tabs> holds a <nav> of tab links. Each tab links to a real page,
+// and each of those pages has a copy of the section (a <section id="...">)
+// that holds this element, with its own tab current. A click gets that page
+// and puts its copy of the section in place of the current one, with a
+// cross-fade. The address changes, and the Back button shows the earlier tab.
+// A modified click (Ctrl, Shift, Alt, Cmd) or a failed request falls back to
+// a normal page load. Without JavaScript, the links open the tab pages.
 
-class MileagePicker extends HTMLElement {
+class SectionTabs extends HTMLElement {
   /** @type {AbortController | undefined} */
   request;
 
@@ -24,10 +24,11 @@ class MileagePicker extends HTMLElement {
   /** @param {Event} e */
   handleEvent(e) {
     if (e.type === "popstate") {
-      // Only the picker that links to the address swaps. If no picker links
-      // to it (the main maintenance page), each picker shows its first tab.
+      // Only the element that links to the address swaps. If no element
+      // links to it (a page whose first tab links to another address), each
+      // element takes its section from the page at the address.
       const path = location.pathname;
-      const linked = (/** @type {ParentNode} */ root) => [...root.querySelectorAll("mileage-picker a")].some((a) => a.getAttribute("href") === path);
+      const linked = (/** @type {ParentNode} */ root) => [...root.querySelectorAll("section-tabs a")].some((a) => a.getAttribute("href") === path);
       if ([...this.querySelectorAll("a")].some((a) => a.getAttribute("href") === path) || !linked(document)) void this.show(path, false);
       return;
     }
@@ -50,21 +51,21 @@ class MileagePicker extends HTMLElement {
       const page = new DOMParser().parseFromString(await r.text(), "text/html");
       const current = this.closest("section[id]");
       const next = current ? page.getElementById(current.id) : null;
-      if (!next || !current) throw new Error("no section for this picker");
+      if (!next || !current) throw new Error("no section for these tabs");
       if (push) history.pushState(null, "", href);
       document.title = page.title;
       const swap = () => current.replaceWith(next);
       if (document.startViewTransition) {
-        // On Back, two pickers can swap at the same time. The second
+        // On Back, two elements can swap at the same time. The second
         // transition skips the first one, which rejects its ready promise.
         // The swap still happens, so ignore that rejection.
         const t = document.startViewTransition(swap);
         t.ready.catch(() => {});
         await t.updateCallbackDone;
       } else swap();
-      // The clicked link is gone. Put focus on the new current mileage.
+      // The clicked link is gone. Put focus on the new current tab.
       if (document.activeElement === document.body) {
-        const now = next.querySelector(".binder-tabs a[aria-current]");
+        const now = next.querySelector("section-tabs a[aria-current]");
         if (now instanceof HTMLElement) now.focus();
       }
     } catch (err) {
@@ -73,4 +74,4 @@ class MileagePicker extends HTMLElement {
   }
 }
 
-customElements.define("mileage-picker", MileagePicker);
+customElements.define("section-tabs", SectionTabs);

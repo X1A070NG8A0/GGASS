@@ -1,104 +1,92 @@
-# KLR Service Explorer
+# ggass
 
-A local service and repair reference for the Kawasaki KLR650 only, first generation (KL650A), set up for a 2006 model.
-The text is a paraphrase of the Clymer KLR650 1987-2006 manual in ASD-STE100
-Simplified Technical English. The Kawasaki manuals and saved klr650.net threads
-supply corrections and additions. Each step cites the page or post that it
-comes from.
-
-This is for personal use only. The repository holds copyrighted manuals and
-text taken from them. The server listens on `127.0.0.1` only. Do not deploy
-the site, and keep the GitHub repository private.
+A static site generator. It comes from the KLR Service Explorer, a local
+service wiki, with the KLR650 content removed. The build, the local server,
+the browser elements, the stylesheet and the fonts remain. `site.yaml` and
+the pages in `content/` are placeholders.
 
 ## Run the site
 
 ```sh
 npm install
-npm run build      # validate all citations, then write dist/
-npm run serve      # http://127.0.0.1:4650
+npm run build      # check the links, then write dist/
+npm run serve      # http://127.0.0.1:4000
 ```
 
-`node site/build.ts --check` validates and writes nothing. `npm run check`
-type-checks the build (TypeScript, run by Node directly) and the browser code.
+`node site/build.ts --check` does the link check and writes nothing.
+`npm run check` type-checks the build (TypeScript, run by Node directly) and
+the browser code. To use a different port, set `PORT`.
+
+## Content
+
+`site.yaml` holds the site name, the header links and the footer. Each page
+is an HTML file in `content/` that starts with a YAML header:
+
+```html
+---
+title: Getting started
+kind: Guide
+---
+<h1>Getting started</h1>
+<p>Body HTML.</p>
+```
+
+The `title` is necessary. It goes in the `<title>` element and in the search
+results. The `kind` is the label in the search results, and the default is
+"Page". The body holds its own `<h1>`. The build adds only the layout.
+
+The path in `content/` is the address of the page: `content/guide/start.html`
+becomes `/guide/start.html`. The build copies the other files in `content/`,
+for example images, to the same path.
+
+The build does these steps:
+
+1. It writes each page in the layout, and the body alone under `/frag/` for the popup windows.
+2. It writes `/search.html` and `/search-index.json` with the text of each page.
+3. It copies the stylesheet, the browser code and the fonts to `/assets/`.
+
+If a root-relative link (an `href`, `src` or `action` that starts with `/`)
+has no target, the build stops. A target is a page, a file from `content/`,
+a generated file or an asset.
+
+## Browser elements
 
 The browser code in `site/client/` is plain JavaScript with JSDoc types, so
 the build copies it as written. The site uses no libraries. Each module
 defines one custom element, and each element wraps HTML that works without
-JavaScript:
+JavaScript. `content/elements/index.html` shows the markup of each element.
 
 | Element | With JavaScript | Without JavaScript |
 | --- | --- | --- |
-| `<pop-link>` | Pointing to the link opens a popup window (`<pop-window>`) | A link |
-| `<check-list>` | Keeps the ticks and moves ticked items down | Checkboxes |
-| `<list-filter>` | Filters the list on the page | Hidden |
+| `<pop-link>` | Pointing to the link opens the page in a popup window (`<pop-window>`). Links in that window open more windows. You can pin a window and drag it. | A link |
+| `<check-list>` | Keeps the ticks in `localStorage` and moves ticked items down | Checkboxes |
+| `<list-filter>` | Filters a list on the page | Hidden |
 | `<site-search>` | Searches `search-index.json` | Hidden, with a note on the search page |
-| `<mileage-picker>` | Swaps a service checklist in place from its binder tab | Links to `/maintenance/<miles>.html` and `/maintenance/every-<miles>.html` |
-| `<bolt-sequence>` | Steps through a tightening order in the drawing | Drawing and numbered list |
+| `<section-tabs>` | Swaps a section in place from the page of the tab | Links to the tab pages |
+| `<step-sequence>` | Steps through a numbered order in a drawing | Drawing and numbered list |
 | `<photo-zoom>` | Opens the photo large in a dialog | A link to the image file |
 
-Static content (procedures, steps, parts, specification tables) is native
-HTML.
+You do not write `<pop-link>` in the content. Put a bare `data-pop` attribute
+on a link to a page, for example `<a href="/guide/start.html" data-pop>`. The
+build wraps the link and points it to the body of that page.
 
-On 2026-11-17 a scripted test of each element passed in Chromium 156,
-Firefox 160 and WebKit 27.2 (the Playwright build of the Safari engine, on
-Windows). Firefox 143, which has no anchor positioning and no invoker
-commands, tested the JavaScript fallbacks. Real Safari on a Mac or an
-iPhone is not tested.
+The popup windows use anchor positioning and invoker commands. If a browser
+does not have them, JavaScript places the window and handles the buttons.
 
-Accessibility, checked on 2026-11-18 with scripted checks in Chromium (light and dark, and 320 px wide): text contrast is at least 4.5:1, nothing scrolls sideways at 320 px, controls have names and states, procedure headings do not skip a level, and search and filter results are announced. There is a skip link. Photo alt text names the figure but does not describe it. A screen reader test and an axe-core run are not done. `site/REFACTOR.md` gives the reasons for these choices.
+## Fonts
 
-## What the site does
+The site uses TeX Gyre Heros, a Helvetica-style typeface under the GUST Font
+License. `scripts/make_woff2.py` writes the WOFF2 files in
+`site/static/fonts/` from the OpenType sources in `site/fonts-src/`. It cuts
+each font to the characters in `site/fonts-src/charset.txt`. The build lists
+each character on a page that is not in that file.
 
-The site has four sections, each with a search bar:
+To run the script, make a venv with `py -3.12 -m venv .venv`, then
+`.venv/Scripts/pip install fonttools brotli`.
 
-1. Routine maintenance: the service schedule, and a checklist for each mileage.
-2. Common repairs: repairs off the schedule (flats, cables, brakes, bulbs, crash damage, first-generation weak points), from `data/common-repairs.yaml`.
-3. Full reference: every chapter and procedure of the manual, the specifications and the errata (owner reports from klr650.net, source disagreements, and values that no source gives).
-4. Tool list: each tool that a procedure names, with the procedures that use it.
+## Tests
 
-Each procedure shows its specifications, its parts (always replace, replace if worn or damaged, consumables), its tools, what you must do first, and which procedures need it. The tool list comes from `data/tools.yaml`: the build finds each tool in the cited step text, and adds a torque wrench where a step has a torque value.
-
-If you hover a link to a section, a procedure, a torque value or a forum post, a window opens with the full content. Links in that window open more windows. Pin a window to keep it, and drag it by its title bar. Drawn sequences, for example the cylinder head tightening order, are SVG diagrams with a numbered legend (`data/diagrams/`). Each step shows its photos, cropped from Clymer, but no scans of book pages.
-
-## Data and rules
-
-`data/AUTHORING.md` is the contract for every writer. It gives the sources,
-the fact rules, the ASD-STE100 rules, the YAML schema and the rules for an
-interrupt. The build enforces these rules:
-
-- Each step, part, summary and table must have a citation that resolves. If not, the build fails.
-- Each `spec_ref`, `op`, `ref` (book section) and `diagram` must exist.
-- Quoted forum text must be in the cited post word for word.
-- Each number in a step must be in the text layer of the cited page. A reviewer can mark a step `image_checked` after a comparison with the page image.
-- The check lists words that ASD-STE100 rejects (should, may, verify, ensure, semicolons and others).
-- When sources disagree, Clymer is first. The other source is shown next to it as a `conflict`.
-
-## Progress and interrupts
-
-`data/progress.yaml` holds the chapter queue, the status of each chapter and
-the review list. Writers save each section when it is finished.
-`scripts/checkpoint.sh <chapter> [next]` runs the check, marks the chapter
-done and makes a local commit. Nothing is pushed.
-
-## Source layer (Python scripts)
-
-Use the venv: `py -3.12 -m venv .venv`, then
-`.venv/Scripts/pip install pymupdf beautifulsoup4 pyyaml pillow numpy scipy`.
-The KLR600 OCR also needs Tesseract.
-
-| Script | Output |
-| --- | --- |
-| `scripts/render_pages.py` | Page images in `doc/pages/` (not committed) |
-| `scripts/extract_text.py` | Text layers in `doc/text/` |
-| `scripts/ocr_klr600.py` | OCR of the scanned KLR600 manual |
-| `scripts/build_book.py` | Book sections from the Clymer text, `doc/book/clymer.json` |
-| `scripts/extract_figures.py` | Photo crops in `doc/figures/clymer/` |
-| `scripts/make_woff2.py` | WOFF2 fonts in `site/static/fonts/` from the OpenType sources in `site/fonts-src/`, cut to the characters in `site/fonts-src/charset.txt`. The build lists any character on a page that is not in that file. |
-| `scripts/make_webp.py` | A WebP copy of each figure crop, about half the size. The build uses the WebP copy when it exists. |
-| `scripts/extract_drawings.py` | Crops of framed line drawings that the first pass misses, `index-drawings.yaml` |
-| `scripts/figure_contact_sheet.py` | Contact sheet to read figure numbers into `labels-chNN.yaml` |
-| `scripts/save_forum_threads.py` | Saved threads in `doc/community/` |
-
-## Known limits
-
-- Every figure that a step cites has a crop. Some figure numbers were read by eye, from widened corners of the detector crops or from page thumbnails. `labels-corners.yaml` holds these labels. Each label matches a step on the same page, the page before or the page after, that cites that figure. Light photos on a white background have no frame, so no detector finds them. Their boxes were measured by hand and are in `index-manual.yaml`.
+The KLR site tested the browser elements in Chromium, Firefox and WebKit, and
+did accessibility checks. Those records are in the history of this
+repository, before the KLR content was removed. This placeholder site has no
+tests of its own.

@@ -4,7 +4,7 @@
 // This element keeps the ticks in localStorage and moves ticked items
 // below the open items, in their original order.
 
-const PREFIX = "klr650:done:";
+const PREFIX = "done:";
 
 /** @param {string} key */
 function stored(key) {

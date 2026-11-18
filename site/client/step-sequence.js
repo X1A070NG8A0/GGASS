@@ -1,11 +1,11 @@
 // @ts-check
-// <bolt-sequence> holds a drawn tightening sequence: an SVG with one .pt
-// group per bolt and an ordered legend in the same order. It adds Previous
-// and Next buttons to step through the order. The current bolt shows in the
-// drawing and in the legend. Pointing to a bolt or a legend line shows that
-// step. Without JavaScript, the drawing and the numbered legend stay as they are.
+// <step-sequence> holds a drawn sequence: an SVG with one .pt group per step
+// and an ordered legend in the same order. It adds Previous and Next buttons
+// to step through the order. The current step shows in the drawing and in
+// the legend. Pointing to a point or a legend line shows that step. Without
+// JavaScript, the drawing and the numbered legend stay as they are.
 
-class BoltSequence extends HTMLElement {
+class StepSequence extends HTMLElement {
   /** @type {Element[]} */
   points = [];
   /** @type {Element[]} */
@@ -56,4 +56,4 @@ class BoltSequence extends HTMLElement {
   }
 }
 
-customElements.define("bolt-sequence", BoltSequence);
+customElements.define("step-sequence", StepSequence);

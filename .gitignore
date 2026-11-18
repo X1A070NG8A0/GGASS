@@ -1,8 +1,6 @@
 # build output
 dist/
 node_modules/
+# Python venv for scripts/make_woff2.py
 .venv/
 __pycache__/
-
-# rendered page images are regenerated from the PDFs by scripts/render_pages.py
-doc/pages/
