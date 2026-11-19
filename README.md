@@ -27,16 +27,21 @@ the browser code. To use a different port, set `PORT`.
 ## Content
 
 `site.yaml` holds the site name, the header links and the footer. Each page
-is an HTML file in `content/` that starts with a YAML header:
+is an HTML file in `content/` that starts with a YAML header inside an HTML
+comment:
 
 ```html
----
+<!--
 title: Getting started
 kind: Guide
----
+-->
 <h1>Getting started</h1>
 <p>Body HTML.</p>
 ```
+
+The `<!--` and `-->` lines must be the first line and the line after the
+YAML. Because the header is a comment, a browser that opens the file
+directly does not show it.
 
 The `title` is necessary. It goes in the `<title>` element and in the search
 results. The `kind` is the label in the search results, and the default is
@@ -66,7 +71,7 @@ JavaScript. `content/elements/index.html` shows the markup of each element.
 | Element | With JavaScript | Without JavaScript |
 | --- | --- | --- |
 | `<pop-link>` | Pointing to the link opens the page in a popup window (`<pop-window>`). Links in that window open more windows. You can pin a window and drag it. | A link |
-| `<check-list>` | Keeps the ticks in `localStorage` and moves ticked items down | Checkboxes |
+| `<check-list>` | Keeps the ticks in `localStorage` | Checkboxes |
 | `<list-filter>` | Filters a list on the page | Hidden |
 | `<site-search>` | Searches `search-index.json` | Hidden, with a note on the search page |
 | `<section-tabs>` | Swaps a section in place from the page of the tab | Links to the tab pages |

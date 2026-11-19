@@ -1,9 +1,9 @@
----
+<!--
 # SPDX-FileCopyrightText: 2026 GGASS project
 # SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 title: Elements
 kind: Reference
----
+-->
 <h1>Elements</h1>
 <p>Each custom element wraps plain HTML that works without JavaScript. Read the source of this page (content/elements/index.html) for the markup of each one.</p>
 <p class="toc"><a href="#pop-link">Popup links</a> · <a href="#check-list">Checklist</a> · <a href="#list-filter">List filter</a> · <a href="#section-tabs">Tabs</a> · <a href="#step-sequence">Step sequence</a> · <a href="#photo-zoom">Photo zoom</a> · <a href="#steps">Steps and callouts</a></p>
@@ -13,7 +13,7 @@ kind: Reference
 <p>In the content, a link gets a bare <code>data-pop</code> attribute. The build wraps it in <code>&lt;pop-link&gt;</code> and points it to the page body under <code>/frag/</code>.</p>
 
 <h2 id="check-list">Checklist</h2>
-<p>Tick an item. It moves to the bottom of the list. <span class="ticks-hint">This browser keeps the ticks.</span></p>
+<p>Tick an item to cross it out. <span class="ticks-hint">This browser keeps the ticks.</span></p>
 <check-list><ul class="checklist">
 <li><label><input type="checkbox" data-done-key="example:first" aria-label="Done: First item"> <span class="name">First item</span></label></li>
 <li><label><input type="checkbox" data-done-key="example:second" aria-label="Done: Second item"> <span class="name">Second item</span></label></li>

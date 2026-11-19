@@ -30,13 +30,14 @@
 
 // Loads site.yaml and the pages in content/.
 //
-// A page is an HTML file that starts with a YAML header between two "---"
-// lines. The body is plain HTML and holds its own <h1>:
+// A page is an HTML file that starts with a YAML header inside an HTML
+// comment, so a browser that opens the file directly does not show it. The
+// body is plain HTML and holds its own <h1>:
 //
-//   ---
+//   <!--
 //   title: Getting started   # required: the <title> and the search result
 //   kind: Guide              # optional: the label in search results (default "Page")
-//   ---
+//   -->
 //   <h1>Getting started</h1>
 //   <p>Body HTML.</p>
 //
@@ -74,9 +75,9 @@ export function load(): Content {
       continue;
     }
     const file = `content${url}`;
-    const m = readFileSync(join(CONTENT, rel), "utf8").replace(/\r\n/g, "\n").match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+    const m = readFileSync(join(CONTENT, rel), "utf8").replace(/\r\n/g, "\n").match(/^<!--\n([\s\S]*?)\n-->\n?([\s\S]*)$/);
     if (!m) {
-      errors.push(`${file}: no YAML header (two "---" lines at the start)`);
+      errors.push(`${file}: no page header (YAML between "<!--" and "-->" lines at the start)`);
       continue;
     }
     let head: { title?: string; kind?: string };
