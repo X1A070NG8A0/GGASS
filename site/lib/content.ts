@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // Loads site.yaml and the pages in content/.
 //
 // A page is an HTML file that starts with a YAML header between two "---"

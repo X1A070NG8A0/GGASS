@@ -1,6 +1,6 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
 # build output
 dist/
 node_modules/
-# Python venv for scripts/make_woff2.py
-.venv/
-__pycache__/

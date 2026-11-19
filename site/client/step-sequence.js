@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <step-sequence> holds a drawn sequence: an SVG with one .pt group per step
 // and an ordered legend in the same order. It adds Previous and Next buttons
 // to step through the order. The current step shows in the drawing and in

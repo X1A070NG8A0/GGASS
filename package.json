@@ -2,6 +2,7 @@
   "name": "ggass",
   "private": true,
   "description": "Static site generator: HTML pages with a YAML header, light DOM custom elements, no client libraries.",
+  "license": "Apache-2.0 OR LGPL-2.1-or-later",
   "type": "module",
   "scripts": {
     "build": "node site/build.ts",

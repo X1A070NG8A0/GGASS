@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // Client entry. Each module defines one custom element. A custom element
 // starts itself when it enters the page: on load, after a tab swap, or in
 // a popup window. No module needs an init call. Each element holds plain

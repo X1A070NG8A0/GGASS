@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // Local static server for dist/. It binds to 127.0.0.1, so only this
 // computer can open the site.
 import { createReadStream, existsSync, statSync } from "node:fs";

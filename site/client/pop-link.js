@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <pop-link> holds a link with data-pop. If you point to it with a mouse for
 // a short time, a <pop-window> opens with the content of data-pop. A touch
 // or a click follows the link as usual. Without JavaScript, it is a link.

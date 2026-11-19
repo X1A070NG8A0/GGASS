@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <check-list> holds lists of items that each have a checkbox with
 // data-done-key. The stylesheet crosses out a ticked item with :has().
 // This element keeps the ticks in localStorage and moves ticked items

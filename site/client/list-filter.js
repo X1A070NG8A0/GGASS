@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <list-filter items="selector"> holds a search input. Each word typed in it
 // must be in an item, or the item is hidden. An item matches against its
 // data-search attribute, or else its text.

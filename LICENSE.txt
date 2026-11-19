@@ -1,0 +1,17 @@
+GGASS
+Copyright 2026 GGASS project
+
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
+GGASS is dual-licensed. You can use, modify and distribute it under the
+terms of either of these two licenses, at your option:
+
+  1. The Apache License, Version 2.0.
+     Full text: LICENSES/Apache-2.0.txt
+     https://www.apache.org/licenses/LICENSE-2.0
+
+  2. The GNU Lesser General Public License, version 2.1, or (at your
+     option) any later version that the Free Software Foundation
+     publishes.
+     Full text: LICENSES/LGPL-2.1-or-later.txt
+     https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html

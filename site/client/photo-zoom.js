@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <photo-zoom> holds a figure whose image is in a link to the image file.
 // A click opens the image large in a modal dialog. A click on the dialog or
 // the Escape key closes it. Without JavaScript, the link opens the image file.

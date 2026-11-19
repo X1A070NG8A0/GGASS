@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // Gwern-style popup windows. If you point to a <pop-link>, a
 // <pop-window> opens with the content of that address. Links in a window open
 // child windows. A window closes when the pointer leaves it, its link and its

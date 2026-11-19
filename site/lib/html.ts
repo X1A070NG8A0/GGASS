@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // Small HTML helpers shared by the page builders.
 import type { Site } from "./content.ts";
 

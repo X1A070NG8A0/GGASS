@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+
 # Site configuration. The build reads this file and the pages in content/.
 name: Example site
 lang: en

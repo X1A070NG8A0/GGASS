@@ -1,9 +1,16 @@
+<!--
+SPDX-FileCopyrightText: 2026 GGASS project
+SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+-->
+
 # ggass
 
-A static site generator. It comes from the KLR Service Explorer, a local
-service wiki, with the KLR650 content removed. The build, the local server,
-the browser elements, the stylesheet and the fonts remain. `site.yaml` and
-the pages in `content/` are placeholders.
+A static site generator. You write each page as an HTML file with a YAML
+header. The build puts each page in a shared layout, checks the links and
+writes a search index. Small browser elements add popup links, checklists,
+filters, search and tabs, and each one works as plain HTML without
+JavaScript. The site uses no libraries. `site.yaml` and the pages in
+`content/` are placeholders.
 
 ## Run the site
 
@@ -43,7 +50,7 @@ The build does these steps:
 
 1. It writes each page in the layout, and the body alone under `/frag/` for the popup windows.
 2. It writes `/search.html` and `/search-index.json` with the text of each page.
-3. It copies the stylesheet, the browser code and the fonts to `/assets/`.
+3. It copies the stylesheet and the browser code to `/assets/`.
 
 If a root-relative link (an `href`, `src` or `action` that starts with `/`)
 has no target, the build stops. A target is a page, a file from `content/`,
@@ -73,20 +80,19 @@ build wraps the link and points it to the body of that page.
 The popup windows use anchor positioning and invoker commands. If a browser
 does not have them, JavaScript places the window and handles the buttons.
 
-## Fonts
+## License
 
-The site uses TeX Gyre Heros, a Helvetica-style typeface under the GUST Font
-License. `scripts/make_woff2.py` writes the WOFF2 files in
-`site/static/fonts/` from the OpenType sources in `site/fonts-src/`. It cuts
-each font to the characters in `site/fonts-src/charset.txt`. The build lists
-each character on a page that is not in that file.
+You can use GGASS under the Apache License 2.0 or under the GNU LGPL 2.1
+or later, at your option (SPDX: `Apache-2.0 OR LGPL-2.1-or-later`). The
+LGPL option is for software under the GNU GPL version 2, because the Free
+Software Foundation considers Apache 2.0 incompatible with that version.
+`LICENSE.txt` gives the details, and `LICENSES/` holds the full texts.
 
-To run the script, make a venv with `py -3.12 -m venv .venv`, then
-`.venv/Scripts/pip install fonttools brotli`.
+Each file names its copyright holder and license in an SPDX header. For
+the files that cannot hold a comment, `REUSE.toml` gives this information.
+The layout follows the [REUSE specification](https://reuse.software).
 
 ## Tests
 
-The KLR site tested the browser elements in Chromium, Firefox and WebKit, and
-did accessibility checks. Those records are in the history of this
-repository, before the KLR content was removed. This placeholder site has no
-tests of its own.
+The project has no automated tests yet. `npm run check` and
+`node site/build.ts --check` are the checks that exist.

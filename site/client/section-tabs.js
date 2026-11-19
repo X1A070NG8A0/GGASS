@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <section-tabs> holds a <nav> of tab links. Each tab links to a real page,
 // and each of those pages has a copy of the section (a <section id="...">)
 // that holds this element, with its own tab current. A click gets that page

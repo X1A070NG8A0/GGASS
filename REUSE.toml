@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+#
+# Copyright and license for the files that cannot hold a comment header.
+# Specification: https://reuse.software/spec/
+version = 1
+
+[[annotations]]
+path = [
+  "package.json",
+  "package-lock.json",
+  "tsconfig.json",
+  "site/client/tsconfig.json",
+  ".claude/launch.json",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 GGASS project"
+SPDX-License-Identifier = "Apache-2.0 OR LGPL-2.1-or-later"

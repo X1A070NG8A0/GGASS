@@ -1,4 +1,6 @@
 // @ts-check
+// SPDX-FileCopyrightText: 2026 GGASS project
+// SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 // <site-search> holds a search input and a results list. It loads
 // /search-index.json one time and shows the entries that contain each word.
 // A ?q= parameter in the address fills the input. Without a results list

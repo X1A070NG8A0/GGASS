@@ -1,14 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2026 GGASS project
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
 /* Site stylesheet.
    Plain, readable text that is dense with links, in the manner of "better
    motherfucking website", with gwern-style popup windows.
    Layers, lowest first. A rule in a later layer wins over an earlier layer,
    whatever the selector specificity. */
 @layer base, layout, content, components, popups;
-
-/* TeX Gyre Heros: a free (GUST Font License) Helvetica-style typeface,
-   self-hosted in /assets/fonts. Fallback: the default sans-serif. */
-@font-face { font-family: "TeX Gyre Heros"; src: url("/assets/fonts/texgyreheros-regular.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: "TeX Gyre Heros"; src: url("/assets/fonts/texgyreheros-bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 
 /* Cross-fade between pages. The header has its own name, so it stays still. */
 @media (prefers-reduced-motion: no-preference) {
@@ -33,7 +32,8 @@
     --second-bg: light-dark(#fbf3df, #2c2615);
     --note-bg: light-dark(#eef3f8, #1a2230);
     --pop-bg: light-dark(#ffffff, #22211e);
-    --sans: "TeX Gyre Heros", sans-serif;
+    /* The reader's own fonts. The site loads no font files. */
+    --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
     --mono: var(--sans);
     --code: ui-monospace, "Cascadia Mono", Consolas, monospace;
   }
@@ -87,10 +87,8 @@
   footer.site { margin-top: 3rem; border-top: 1px solid var(--rule); padding-top: .8rem; color: var(--muted); font-size: .85rem; }
 
   /* Site name in the "Helvetica Diagonal" style: heavy, uppercase, steep
-     oblique. Heros has no black weight, so a thin stroke makes the bold heavier.
-     The slant is CSS on the upright bold face, so no italic font is loaded:
-     19.2 degrees = the 12 degree Heros italic angle plus a 7 degree extra
-     slant, after the 1.06 stretch. */
+     oblique. A thin stroke makes the bold heavier. The slant is a CSS skew
+     of the upright bold face, after a 1.06 stretch. */
   .brand, .brandmark {
     font-family: var(--sans); font-weight: 700; font-style: normal; text-transform: uppercase;
     letter-spacing: -.02em; -webkit-text-stroke: .035em currentColor;
