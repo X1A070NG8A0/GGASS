@@ -1,6 +1,28 @@
 # SPDX-FileCopyrightText: 2026 GGASS project
 # SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+/*
 
-# build output
-dist/
-node_modules/
+!/.gitignore
+!/LICENSE.txt
+!/LICENSES/
+!/README.md
+!/REUSE.toml
+!/package.json
+!/package-lock.json
+!/site.yaml
+!/tsconfig.json
+!/site/
+!/content/
+
+!*.ts
+!*.js
+!*.mjs
+!*.cjs
+!*.css
+!*.html
+!*.json
+!*.yaml
+!*.yml
+!*.toml
+!*.md
+!*.txt
