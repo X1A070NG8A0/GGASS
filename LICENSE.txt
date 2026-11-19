@@ -10,8 +10,8 @@ terms of either of these two licenses, at your option:
      Full text: LICENSES/Apache-2.0.txt
      https://www.apache.org/licenses/LICENSE-2.0
 
-  2. The GNU Lesser General Public License, version 2.1, or (at your
-     option) any later version that the Free Software Foundation
-     publishes.
+  2. The GNU Lesser General Public License as published by the Free
+     Software Foundation; either version 2.1 of the License, or (at
+     your option) any later version.
      Full text: LICENSES/LGPL-2.1-or-later.txt
      https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
