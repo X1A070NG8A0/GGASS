@@ -41,7 +41,6 @@ import { formatMs, Timings, type Asset, type BuildContext } from "./steps.ts";
 import { customTags, headings, popups, sideNotes } from "./transform.ts";
 
 export type BuildOptions = {
-  // Check the pages and links only. Write nothing.
   check?: boolean;
   // Hides the summary and the warnings. Errors still print.
   quiet?: boolean;
@@ -52,7 +51,6 @@ export type BuildResult = {
   errors: string[];
   warnings: string[];
   pages: number;
-  // The paths written, relative to the output folder.
   outputs: string[];
   timings: [string, number][];
 };
@@ -121,15 +119,15 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
 
   await timings.run("links", () => {
     const generated = new Set(["/search.html", "/search-index.json", ...(config.offline ? ["/sw.js"] : [])]);
-    const fileSet = new Set(files);
-    const known = (href: string) => {
+    const contentFiles = new Set(files);
+    const hasTarget = (href: string) => {
       const t = target(href);
-      return pages.has(t) || generated.has(t) || fileSet.has(t) || outputs.has(t.slice(1)) || t.startsWith("/assets/");
+      return pages.has(t) || generated.has(t) || contentFiles.has(t) || outputs.has(t.slice(1)) || t.startsWith("/assets/");
     };
-    for (const n of config.nav) if (n.href.startsWith("/") && !known(n.href)) errors.push(`configuration: nav link "${n.href}" has no target`);
+    for (const n of config.nav) if (n.href.startsWith("/") && !hasTarget(n.href)) errors.push(`configuration: nav link "${n.href}" has no target`);
     for (const page of pages.values())
       for (const [, href] of page.body.matchAll(/\s(?:href|src|action)="(\/(?!\/)[^"]*)"/g))
-        if (!known(href)) errors.push(`${page.file}: link to "${href}" has no target`);
+        if (!hasTarget(href)) errors.push(`${page.file}: link to "${href}" has no target`);
   });
   if (options.check) {
     log(`Checked ${pages.size} pages: ${errors.length} error(s).`);
@@ -156,8 +154,7 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
       importMap(js),
     ].filter(Boolean);
     const loader = `<script type="module" src="${js.loader.url}" integrity="${js.loader.integrity}"></script>`;
-    const sums = new Map(js.files.map((f) => [f.url, f.integrity]));
-    // Static imports are preloaded too, so all modules load at once.
+    const integrityByUrl = new Map(js.files.map((f) => [f.url, f.integrity]));
     const preloads = (html: string) => {
       const seen = new Set<string>();
       const add = (url: string) => {
@@ -171,7 +168,7 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
         if (m) add(m.url);
       }
       seen.delete(js.loader.url);
-      return [...seen].map((url) => `<link rel="modulepreload" href="${url}" integrity="${sums.get(url)}">`);
+      return [...seen].map((url) => `<link rel="modulepreload" href="${url}" integrity="${integrityByUrl.get(url)}">`);
     };
     const render = (url: string, title: string, toc: Page["toc"], body: string) => {
       const html = layout({ config, url, title, toc, body, head: "<!--head-->" });

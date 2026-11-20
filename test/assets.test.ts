@@ -124,7 +124,6 @@ describe("processImage", () => {
     assert.equal(out.height, 1000);
     const stats = await sharp(out.data).stats();
     assert.ok(stats.isOpaque);
-    // Gray: the three channels have the same mean.
     assert.ok(Math.abs(stats.channels[0].mean - stats.channels[2].mean) < 1);
   });
   test("resizes without growing the image", async () => {
@@ -138,7 +137,6 @@ describe("processImage", () => {
     const plain = await processImage(PHOTO, { resize: { width: 400 }, format: "png" });
     const marked = await processImage(PHOTO, { resize: { width: 400 }, overlays: [{ text: "Mark" }, { image: logo, gravity: "northwest", width: 40, opacity: 0.5 }], format: "png" });
     assert.notDeepEqual(marked.data, plain.data);
-    // The half-transparent red square is at the top left.
     const { data } = await sharp(marked.data).extract({ left: 10, top: 10, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
     assert.ok(data[0] > data[1] + 60, `red over the sky: ${[...data].join(", ")}`);
   });

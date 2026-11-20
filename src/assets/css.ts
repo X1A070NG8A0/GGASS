@@ -37,8 +37,6 @@ import { engine, esbuildErrors } from "./optional.ts";
 
 const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
 
-// Removes comments except /*! ones, and only the white space that never has
-// meaning. Strings and calc() stay as written.
 export function minifyCss(css: string): string {
   let out = "";
   let code = "";
@@ -80,7 +78,6 @@ export function minifyCss(css: string): string {
 
 const FILE_TYPES = /\.(woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif)$/i;
 
-// Also copies each file that a relative url() names into the assets folder.
 function bundle(file: string, ctx: BuildContext, seen: Set<string>): string {
   let css: string;
   try {
@@ -125,8 +122,6 @@ export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset 
   let css: string;
   let map: string | undefined;
   if (esbuild) {
-    // Relative paths, so that the plugin below never sees an absolute path
-    // that starts with "/" (on Linux and macOS).
     const relPath = (f: string) => {
       const r = slashes(relative(config.root, f));
       return /^[a-z]:/i.test(r) || r.startsWith("../") ? r : `./${r}`;

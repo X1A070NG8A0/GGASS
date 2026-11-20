@@ -32,7 +32,6 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-// Returns "sha384-" and the base64 hash. Browsers refuse a file that differs.
 export const integrity = (data: string | Uint8Array): string => `sha384-${createHash("sha384").update(data).digest("base64")}`;
 
 export const shortHash = (...parts: (string | Uint8Array)[]): string => {

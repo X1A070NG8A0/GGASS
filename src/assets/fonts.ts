@@ -39,7 +39,7 @@ type SubsetFont = (font: Uint8Array, text: string, options?: { targetFormat?: "w
 type FontVerter = { convert(font: Uint8Array, to: "woff2"): Promise<Uint8Array> };
 
 // Characters that scripts and the layout can show, kept in every subset.
-const ALWAYS = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join("") + "‘’“”–—…•·×→←↑↓↩ ";
+const ALWAYS_KEPT_CHARS = Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)).join("") + "‘’“”–—…•·×→←↑↓↩ ";
 
 export type Fonts = { css: string; preloads: string[] };
 
@@ -48,7 +48,7 @@ export async function buildFonts(ctx: BuildContext, siteText: string): Promise<F
   const fonts: Fonts = { css: "", preloads: [] };
   if (!config.fonts.length) return fonts;
   const subsetFont = await optional<SubsetFont>("subset-font", config.root);
-  const used = [...new Set(siteText + ALWAYS)].sort().join("");
+  const used = [...new Set(siteText + ALWAYS_KEPT_CHARS)].sort().join("");
   const cacheDir = join(config.cache, "fonts");
   if (!subsetFont && config.fonts.some((f) => f.subset !== false && extname(f.src).toLowerCase() === ".woff2")) {
     warnings.push("fonts: subset-font is not installed, so fonts are used whole. Install it in the site: npm install --save-dev subset-font");

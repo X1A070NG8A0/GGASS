@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Expects an <a href> to the full-size image around the <img>.
-
 class PhotoZoom extends HTMLElement {
   connectedCallback(): void {
     this.addEventListener("click", this);

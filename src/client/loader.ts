@@ -28,18 +28,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Loads the module of each undefined custom element through the import map
-// ("ggass/<tag>"), also for elements added later.
+const requestedTags = new Set<string>();
 
-const asked = new Set<string>();
-
-function load(root: Element | Document): void {
+function loadUndefined(root: Element | Document): void {
   const found = [...root.querySelectorAll(":not(:defined)")];
   if (root instanceof Element && root.matches(":not(:defined)")) found.push(root);
   for (const el of found) {
     const tag = el.localName;
-    if (asked.has(tag)) continue;
-    asked.add(tag);
+    if (requestedTags.has(tag)) continue;
+    requestedTags.add(tag);
     let url: string;
     try {
       // The import map maps the name. A name that it does not map throws.
@@ -51,9 +48,9 @@ function load(root: Element | Document): void {
   }
 }
 
-load(document);
+loadUndefined(document);
 new MutationObserver((records) => {
-  for (const r of records) for (const node of r.addedNodes) if (node instanceof Element) load(node);
+  for (const r of records) for (const node of r.addedNodes) if (node instanceof Element) loadUndefined(node);
 }).observe(document.documentElement, { childList: true, subtree: true });
 
 const worker = document.documentElement.dataset.sw;

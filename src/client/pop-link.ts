@@ -28,11 +28,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// A "preview" event (from the p shortcut) opens a window and focuses it.
-
 import { PopWindow, SHOW_DELAY, scheduleSweep } from "./pop-window.ts";
 
-const touch = matchMedia("(hover: none)");
+const noHover = matchMedia("(hover: none)");
 const EVENTS = ["pointerover", "pointerout", "click", "preview"];
 let showTimer: number | undefined;
 
@@ -43,7 +41,6 @@ class PopLink extends HTMLElement {
 
   disconnectedCallback(): void {
     for (const type of EVENTS) this.removeEventListener(type, this);
-    // A link that leaves the page opens no window later.
     clearTimeout(showTimer);
   }
 
@@ -55,7 +52,7 @@ class PopLink extends HTMLElement {
       return;
     }
     if (e.type === "click") {
-      if (!touch.matches || !(e instanceof MouseEvent) || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      if (!noHover.matches || !(e instanceof MouseEvent) || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
       PopWindow.open(a, true);
       return;

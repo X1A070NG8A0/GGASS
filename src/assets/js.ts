@@ -57,7 +57,7 @@ export type Scripts = {
 
 // Node's type stripping prints an experimental warning. The build uses it on
 // purpose, so this hides that one warning.
-function strip(source: string): string {
+function stripTypesQuietly(source: string): string {
   const emit = process.emitWarning;
   process.emitWarning = (warning: string | Error, ...rest: unknown[]) => {
     if ((typeof warning === "string" ? warning : warning.message).includes("stripTypeScriptTypes")) return;
@@ -133,8 +133,8 @@ export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
   const done = new Map<string, Asset>();
   const visiting = new Set<string>();
   const emitModule = (file: string, name: string): Asset | undefined => {
-    const known = done.get(file);
-    if (known) return known;
+    const emitted = done.get(file);
+    if (emitted) return emitted;
     if (visiting.has(file)) {
       errors.push(`${relative(config.root, file)}: import cycle. The built-in JavaScript route needs modules without cycles, or esbuild.`);
       return undefined;
@@ -151,7 +151,7 @@ export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
       errors.push(`${relative(config.root, file)}: module not found`);
       return undefined;
     }
-    if (/\.[mc]?ts$/.test(file)) source = strip(source);
+    if (/\.[mc]?ts$/.test(file)) source = stripTypesQuietly(source);
     const deps: string[] = [];
     source = source.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)(["'])(\.{1,2}\/[^"'\n]+)\2/g, (all, before: string, q: string, spec: string) => {
       const dep = emitModule(resolve(dirname(file), spec), basename(spec).replace(/\.[mc]?[jt]sx?$/, ""));
@@ -181,7 +181,7 @@ export async function buildServiceWorker(ctx: BuildContext, precache: string[]):
   const { config, errors } = ctx;
   const source = readFileSync(WORKER, "utf8");
   const esbuild = await engine<typeof Esbuild>("esbuild", config.js.engine, config.root, "js.engine \"esbuild\"", errors);
-  const code = esbuild ? (await esbuild.transform(source, { loader: "ts", minify: config.js.minify, target: config.js.target })).code : strip(source);
+  const code = esbuild ? (await esbuild.transform(source, { loader: "ts", minify: config.js.minify, target: config.js.target })).code : stripTypesQuietly(source);
   const version = `ggass-${shortHash(precache.join("\n"))}`;
   ctx.emit("sw.js", `const PRECACHE = ${JSON.stringify(precache)};\nconst VERSION = ${JSON.stringify(version)};\n${code}`);
 }

@@ -54,7 +54,6 @@
     --control: light-dark(#8a877f, #77746c);
     /* The keyboard focus outline: at least 3:1 against both backgrounds. */
     --focus: light-dark(#1f4e8c, #8fb4e8);
-    /* A site that loads font files sets these. */
     --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
     --mono: var(--sans);
     --code: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -100,7 +99,6 @@
   caption { text-align: left; font-weight: 600; padding: .3rem 0; }
   th, td { text-align: left; vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid var(--rule); }
   th[scope="row"] { font-weight: normal; }
-  /* Hide the controls that need JavaScript until their element is defined. */
   list-filter:not(:defined), site-search:not(:defined), share-button:not(:defined) { display: none; }
   check-list, list-filter, site-search, step-sequence, section-tabs, page-toc, side-note { display: block; }
   photo-zoom, key-shortcuts, share-button { display: contents; }
@@ -108,7 +106,6 @@
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .skip { position: absolute; left: -999px; top: 0; }
   .skip:focus { left: 8px; top: 8px; z-index: 10; padding: .3rem .6rem; font: inherit; color: var(--link); background: var(--bg); border: 1px solid var(--link); }
-  /* A wide table scrolls inside its box, so the page does not scroll sideways. */
   .table-scroll { overflow-x: auto; margin: 1rem 0; > table { margin: 0; } }
   input[type="search"] { width: 100%; font: inherit; padding: .4rem .6rem; border: 1px solid var(--control); background: var(--bg); color: var(--fg); margin: .5rem 0 1rem; }
   ::placeholder { color: var(--muted); opacity: 1; }
@@ -279,7 +276,6 @@
     &.flash { animation: note-flash 1.4s ease-out; }
   }
   @keyframes note-flash { from { background: var(--second-bg); } to { background: transparent; } }
-  /* The print copy of the notes. */
   .endnotes { display: none; }
 
   nav.toc {
@@ -389,7 +385,6 @@
       margin: 1.6rem 0 0; padding: 0; color: inherit; background: none; border: 0; border-radius: 0; box-shadow: none;
       a { padding-block: .2rem; }
     }
-    /* side-note.ts moves a note down when it would cover the one before it. */
     .frame > main side-note {
       position: absolute; inset-inline-start: calc(100% + var(--gap)); inline-size: var(--margin-width);
       margin: 0; padding: 0 0 0 .6rem;

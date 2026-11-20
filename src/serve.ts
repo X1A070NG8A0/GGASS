@@ -28,7 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Binds to 127.0.0.1 by default, so only this computer can open the site.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
@@ -67,7 +66,6 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
       res.writeHead(404, { "content-type": "text/plain" }).end("not found");
       return;
     }
-    // no-cache: ask before each use. An unchanged file gets a short 304.
     const modified = statSync(file).mtime;
     modified.setMilliseconds(0); // HTTP dates have whole seconds
     const headers = {

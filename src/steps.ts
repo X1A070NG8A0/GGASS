@@ -41,23 +41,17 @@ export type Asset = { url: string; integrity: string };
 export type BuildContext = {
   config: ResolvedConfig;
   pages: Map<string, Page>;
-  // The other files in the content folder, as root-relative URLs.
   files: string[];
   errors: string[];
   warnings: string[];
-  // The files to write, by path relative to the output folder.
   outputs: Map<string, string | Uint8Array>;
-  // HTML that goes in the <head> of each page.
   head: string[];
-  // Adds a file to the output. `path` is relative to the output folder.
   emit(path: string, data: string | Uint8Array): void;
 };
 
 export type Step = {
   name: string;
-  // Runs for each page after the built-in transforms. Returns the new body.
   page?(body: string, page: Page, ctx: BuildContext): string | Promise<string>;
-  // Runs once after the assets and before the layout.
   site?(ctx: BuildContext): void | Promise<void>;
 };
 

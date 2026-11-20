@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Expects one svg .pt group per step and a .legend list in the same order.
-
 class StepSequence extends HTMLElement {
   points: Element[] = [];
   items: Element[] = [];

@@ -41,7 +41,6 @@ export type Page = {
   title: string;
   kind: string;
   body: string;
-  // Relative to the site root.
   file: string;
   toc: TocEntry[];
 };
@@ -49,7 +48,7 @@ export type Page = {
 export type Content = { pages: Map<string, Page>; files: string[]; errors: string[] };
 
 // YAML reads `title: 2026` as a number, so a number or true/false is text.
-const plain = (value: unknown): string =>
+const yamlText = (value: unknown): string =>
   typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : "";
 
 export function loadContent(config: ResolvedConfig): Content {
@@ -87,9 +86,9 @@ export function loadContent(config: ResolvedConfig): Content {
       errors.push(`${file}: YAML header: ${(e as Error).message.split("\n")[0]}`);
       continue;
     }
-    const title = plain(head.title);
+    const title = yamlText(head.title);
     if (!title) errors.push(`${file}: no title (it must be text)`);
-    pages.set(url, { url, title: title || url, kind: plain(head.kind) || "Page", body: m[2].trim(), file, toc: [] });
+    pages.set(url, { url, title: title || url, kind: yamlText(head.kind) || "Page", body: m[2].trim(), file, toc: [] });
   }
   return { pages, files, errors };
 }

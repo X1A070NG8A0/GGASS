@@ -42,6 +42,4 @@ export { readDimensions, type Size } from "./assets/dimensions.ts";
 export { readExif, type Exif } from "./assets/exif.ts";
 export { imageMetadata, parseImageSpec, processImage, type ImageMetadata, type ImageOps, type ImageOverlay, type ImageResult } from "./assets/images.ts";
 
-// Returns its argument unchanged. It exists so that an editor can type-check
-// and complete the configuration.
 export const defineSite = (site: SiteConfig): SiteConfig => site;

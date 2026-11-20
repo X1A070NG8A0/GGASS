@@ -50,9 +50,8 @@ export function headings(page: Page): void {
   });
 }
 
-const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
-// Elements whose end gets the side notes that they hold.
-const BLOCKS = new Set(["p", "li", "dd", "dt", "td", "th", "figcaption", "caption", "blockquote", "summary", "h1", "h2", "h3", "h4", "h5", "h6"]);
+const VOID_ELEMENTS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+const NOTE_HOSTS = new Set(["p", "li", "dd", "dt", "td", "th", "figcaption", "caption", "blockquote", "summary", "h1", "h2", "h3", "h4", "h5", "h6"]);
 
 // Each note moves to the end of its paragraph, so that on a narrow screen it
 // follows the sentence instead of splitting it.
@@ -71,7 +70,7 @@ export function sideNotes(page: Page, errors: string[]): void {
       notes.push(content);
       const ref = `<a class="note-ref" id="note-ref-${n}" href="#note-${n}" role="doc-noteref" aria-label="Note ${n}" style="anchor-name: --note-${n}">${n}</a>`;
       const note = `<side-note id="note-${n}" role="note" aria-label="Note ${n}" style="position-anchor: --note-${n}"><a class="note-num" href="#note-ref-${n}" aria-label="Back to the text of note ${n}">${n}</a> ${content}</side-note>`;
-      const block = stack.findLast((b) => BLOCKS.has(b.name));
+      const block = stack.findLast((b) => NOTE_HOSTS.has(b.name));
       if (!block) {
         errors.push(`${page.file}: side note ${n} is not in a paragraph, list item or table cell`);
         out += ref + note;
@@ -83,7 +82,7 @@ export function sideNotes(page: Page, errors: string[]): void {
     }
     const name = m[3].toLowerCase();
     if (m[2] !== "/") {
-      if (!VOID.has(name) && !m[0].endsWith("/>")) stack.push({ name, pending: [] });
+      if (!VOID_ELEMENTS.has(name) && !m[0].endsWith("/>")) stack.push({ name, pending: [] });
       out += m[0];
       continue;
     }
@@ -95,8 +94,7 @@ export function sideNotes(page: Page, errors: string[]): void {
   page.body = `${out}\n<section class="endnotes" aria-labelledby="endnotes-title">\n<h2 id="endnotes-title" data-notoc>Notes</h2>\n<ol>\n${list}\n</ol>\n</section>`;
 }
 
-// Adds each popup target to `targets`: those pages get a /frag/ copy.
-export function popups(page: Page, pages: Map<string, Page>, errors: string[], targets: Set<string>): void {
+export function popups(page: Page, pages: Map<string, Page>, errors: string[], fragTargets: Set<string>): void {
   page.body = page.body.replace(/<a\b([^>]*)\sdata-pop(?=[\s>])([^>]*)>([\s\S]*?)<\/a>/g, (all, before: string, after: string, label: string) => {
     const href = `${before}${after}`.match(/\shref="([^"]*)"/)?.[1] ?? "";
     const hit = href.startsWith("/") ? pages.get(target(href)) : undefined;
@@ -104,7 +102,7 @@ export function popups(page: Page, pages: Map<string, Page>, errors: string[], t
       errors.push(`${page.file}: data-pop on "${href}", which is not a page`);
       return all;
     }
-    targets.add(hit.url);
+    fragTargets.add(hit.url);
     return `<pop-link><a${before} data-pop="/frag${hit.url}"${after}>${label}</a></pop-link>`;
   });
 }

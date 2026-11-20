@@ -46,7 +46,7 @@ function fragment(url: string): Promise<string> {
 }
 
 let serial = 0;
-let topWin: PopWindow | undefined;
+let topWindow: PopWindow | undefined;
 
 const windows = (): PopWindow[] => [...document.querySelectorAll("pop-window")].filter((w): w is PopWindow => w instanceof PopWindow);
 
@@ -55,22 +55,20 @@ export class PopWindow extends HTMLElement {
   parentWin?: PopWindow;
   pinned = false;
   sheet = false;
-  takeFocus = false;
+  focusOnOpen = false;
   abort?: AbortController;
 
-  static open(link: HTMLAnchorElement, sheet = false, takeFocus = false): void {
+  static open(link: HTMLAnchorElement, sheet = false, focusOnOpen = false): void {
     const all = windows();
     if (all.some((w) => w.link === link)) return;
     const parent = link.closest("pop-window");
     const parentWin = parent instanceof PopWindow ? parent : undefined;
-    // One sheet at a time. For windows, close the unpinned siblings, so that
-    // only one chain of windows is open.
     for (const w of all) if (sheet ? w.sheet : w.parentWin === parentWin && !w.pinned) w.close();
     const win = document.createElement("pop-window") as PopWindow;
     win.link = link;
     win.parentWin = sheet ? undefined : parentWin;
     win.sheet = sheet;
-    win.takeFocus = sheet || takeFocus;
+    win.focusOnOpen = sheet || focusOnOpen;
     document.body.append(win);
   }
 
@@ -110,7 +108,7 @@ export class PopWindow extends HTMLElement {
 
     this.addEventListener("command", this, { signal });
     if (!INVOKERS) this.addEventListener("click", this, { signal });
-    if (this.takeFocus) this.tabIndex = -1;
+    if (this.focusOnOpen) this.tabIndex = -1;
     if (this.sheet) {
       this.addEventListener("toggle", this, { signal });
     } else {
@@ -119,9 +117,8 @@ export class PopWindow extends HTMLElement {
       this.place();
     }
     this.showPopover();
-    topWin = this;
-    // Focus moves in so that Tab reaches the links of the window.
-    if (this.takeFocus) this.focus({ preventScroll: true });
+    topWindow = this;
+    if (this.focusOnOpen) this.focus({ preventScroll: true });
     void this.load(body);
   }
 
@@ -242,8 +239,8 @@ export class PopWindow extends HTMLElement {
   // The last popover shown is on top. Show this window and its children
   // again, so that they move to the top in the same order.
   raise(): void {
-    if (topWin === this) return;
-    topWin = this;
+    if (topWindow === this) return;
+    topWindow = this;
     const stack: PopWindow[] = [this];
     for (let i = 0; i < stack.length; i++) stack.push(...windows().filter((w) => w.parentWin === stack[i]));
     for (const w of stack) {
@@ -274,7 +271,7 @@ export class PopWindow extends HTMLElement {
     if (!this.isConnected) return;
     for (const w of windows()) if (w.parentWin === this) w.close();
     this.link?.style.removeProperty("anchor-name");
-    if (topWin === this) topWin = undefined;
+    if (topWindow === this) topWindow = undefined;
     // After a tap outside a sheet, the focus is already on the page body.
     const active = document.activeElement;
     if (this.contains(active) || (this.sheet && active === document.body)) this.link?.focus({ preventScroll: true });
@@ -289,7 +286,6 @@ let sweepTimer: number | undefined;
 function sweep(): void {
   for (const w of windows().reverse()) {
     if (w.pinned || w.sheet || !w.isConnected) continue;
-    // A window with the keyboard focus in it stays open too.
     const hovered = w.matches(":hover") || w.matches(":focus-within") || w.link?.matches(":hover") || windows().some((c) => c.parentWin === w);
     if (!hovered) w.close();
   }

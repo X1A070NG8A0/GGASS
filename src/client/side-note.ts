@@ -106,7 +106,6 @@ class SideNote extends HTMLElement {
     }
     e.preventDefault();
     if (inMargin(this)) {
-      // Focus the note, so keyboard and screen reader users read it next.
       this.classList.remove("flash");
       void this.offsetWidth;
       this.classList.add("flash");

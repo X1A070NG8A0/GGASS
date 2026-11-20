@@ -28,8 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The build writes PRECACHE and VERSION before this code. Assets have hashed
-// names, so they can come from the cache first.
+// The build writes PRECACHE and VERSION before this code.
 
 declare const PRECACHE: string[];
 declare const VERSION: string;

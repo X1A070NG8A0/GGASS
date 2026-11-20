@@ -42,44 +42,30 @@ export type ImageFormat = "avif" | "webp" | "jpeg" | "png";
 
 export type FontConfig = {
   family: string;
-  // The font file, relative to the site root: .ttf, .otf, .woff or .woff2.
   src: string;
-  // "400", or a range such as "100 900" for a variable font.
   weight?: string | number;
   style?: "normal" | "italic" | "oblique";
-  // font-display. The default is "swap".
   display?: string;
-  // "auto" (the default) keeps the characters that the pages use. A string
-  // keeps those characters. false keeps the whole font.
   subset?: "auto" | false | string;
   preload?: boolean;
   unicodeRange?: string;
 };
 
 export type CssConfig = {
-  // The site stylesheet, relative to the root. It can @import other files.
   entry?: string;
-  // Puts the GGASS stylesheet before the site stylesheet. The default is true.
   base?: boolean;
   minify?: boolean;
   sourcemap?: boolean;
-  // Browsers to support, in esbuild form, for example ["chrome120", "safari17"].
-  // esbuild lowers newer syntax, such as nesting, for these browsers.
   targets?: string[];
   engine?: Engine;
 };
 
 export type JsConfig = {
-  // More custom elements: tag name to module file, relative to the root.
-  // A page loads a module only when the page holds its element.
   components?: Record<string, string>;
   minify?: boolean;
   sourcemap?: boolean;
-  // Browsers or language level, in esbuild form. The default is "es2022".
   target?: string[];
   engine?: Engine;
-  // JSX in components: "automatic" needs jsxImportSource, "transform" uses
-  // jsxFactory and jsxFragment. JSX needs esbuild.
   jsx?: "automatic" | "transform";
   jsxImportSource?: string;
   jsxFactory?: string;
@@ -87,13 +73,9 @@ export type JsConfig = {
 };
 
 export type ImagesConfig = {
-  // Writes AVIF and WebP copies at several widths for each raster image in a
-  // page, with srcset and sizes. "auto" (the default) does this when sharp is
-  // installed.
   responsive?: boolean | "auto";
   widths?: number[];
   formats?: ImageFormat[];
-  // Encoder quality, 1 to 100. Each encoder has its own default.
   quality?: number;
   sizes?: string;
 };
@@ -102,31 +84,22 @@ export type SiteConfig = {
   name: string;
   lang?: string;
   nav?: NavItem[];
-  // HTML at the bottom of each page.
   footer?: string;
-  // The site folder. The default is the current folder.
   root?: string;
-  // The pages, relative to the root. The default is "content".
   content?: string;
   // The output, relative to the root. The default is "dist". Each build
   // deletes it first.
   out?: string;
-  // The cache for processed images and fonts. The default is
-  // node_modules/.cache/ggass in the nearest node_modules folder.
   cache?: string;
   fingerprint?: boolean;
-  // A table of contents for pages with at least `min` h2 and h3 headings.
   toc?: { min?: number } | false;
   shortcuts?: boolean;
   share?: boolean;
-  // A service worker that keeps the assets and the visited pages for
-  // offline reading.
   offline?: boolean;
   css?: CssConfig;
   js?: JsConfig;
   images?: ImagesConfig | false;
   fonts?: FontConfig[];
-  // More build steps, which run after the built-in ones.
   steps?: Step[];
 };
 
@@ -151,7 +124,7 @@ export type ResolvedConfig = {
   steps: Step[];
 };
 
-function nodeModules(from: string): string | undefined {
+function nearestNodeModules(from: string): string | undefined {
   for (let dir = from; ; dir = dirname(dir)) {
     if (existsSync(join(dir, "node_modules"))) return join(dir, "node_modules");
     if (dirname(dir) === dir) return undefined;
@@ -161,7 +134,7 @@ function nodeModules(from: string): string | undefined {
 export function resolveConfig(site: SiteConfig): ResolvedConfig {
   const root = resolve(site.root ?? process.cwd());
   const at = (p: string) => resolve(root, p);
-  const nm = nodeModules(root);
+  const nodeModulesDir = nearestNodeModules(root);
   const images = site.images === false ? false : site.images ?? {};
   return {
     name: site.name,
@@ -171,7 +144,7 @@ export function resolveConfig(site: SiteConfig): ResolvedConfig {
     root,
     content: at(site.content ?? "content"),
     out: at(site.out ?? "dist"),
-    cache: site.cache ? at(site.cache) : nm ? join(nm, ".cache", "ggass") : join(root, ".cache", "ggass"),
+    cache: site.cache ? at(site.cache) : nodeModulesDir ? join(nodeModulesDir, ".cache", "ggass") : join(root, ".cache", "ggass"),
     fingerprint: site.fingerprint ?? true,
     toc: site.toc === false ? false : { min: site.toc?.min ?? 3 },
     shortcuts: site.shortcuts ?? true,

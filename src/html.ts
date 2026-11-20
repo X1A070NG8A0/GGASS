@@ -69,7 +69,6 @@ export function attrs(tag: string): Map<string, string> {
   return out;
 }
 
-// An empty value writes a bare attribute, such as `hidden`.
 export function tag(name: string, list: Map<string, string>): string {
   const parts = [...list].map(([k, v]) => (v === "" ? ` ${k}` : ` ${k}="${esc(v)}"`));
   return `<${name}${parts.join("")}>`;

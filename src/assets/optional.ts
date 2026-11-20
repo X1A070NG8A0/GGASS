@@ -65,8 +65,6 @@ export function optional<T>(name: string, root: string): Promise<T | undefined> 
   return mod as Promise<T | undefined>;
 }
 
-// The package for an engine choice. "builtin" gives undefined. A named
-// engine that is not installed adds an error.
 export async function engine<T>(name: string, choice: Engine, root: string, purpose: string, errors: string[]): Promise<T | undefined> {
   if (choice === "builtin") return undefined;
   const mod = await optional<T>(name, root);
@@ -74,7 +72,6 @@ export async function engine<T>(name: string, choice: Engine, root: string, purp
   return mod;
 }
 
-// The package, or an error that says how to install it.
 export async function required<T>(name: string, root: string, purpose: string): Promise<T> {
   const mod = await optional<T>(name, root);
   if (!mod) throw new Error(`${purpose} needs ${name}. Install it in the site: npm install --save-dev ${name}`);

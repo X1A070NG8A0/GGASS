@@ -98,7 +98,6 @@ describe("build with esbuild and sharp", () => {
     const html = read(out, "article.html");
     assert.equal([...html.matchAll(/<a class="note-ref" id="note-ref-(\d)"/g)].length, 5);
     assert.ok(html.includes('<side-note id="note-1" role="note"'));
-    // The note goes at the end of its paragraph.
     assert.match(html, /see both\.<a class="note-ref"[^>]*>1<\/a><side-note id="note-1"[\s\S]*?<\/side-note><\/p>/);
     assert.match(html, /<section class="endnotes"[\s\S]*<li>A side note\./);
   });
@@ -181,8 +180,6 @@ describe("build without the optional packages", () => {
 });
 
 describe("site components", () => {
-  // A component that the test writes to a temporary folder, so the test site
-  // shows nothing extra.
   const source = `class TestWidget extends HTMLElement { connectedCallback(): void { this.textContent = "ok"; } }\ncustomElements.define("test-widget", TestWidget);\n`;
   for (const engine of ["esbuild", "builtin"] as const) {
     test(`go in the import map, with ${engine}`, async () => {

@@ -75,7 +75,6 @@ class SectionTabs extends HTMLElement {
       if (push) history.pushState(null, "", href);
       document.title = page.title;
       current.replaceWith(next);
-      // The clicked link was replaced, so focus the new current tab.
       if (document.activeElement === document.body) {
         const now = next.querySelector("section-tabs a[aria-current]");
         if (now instanceof HTMLElement) now.focus();

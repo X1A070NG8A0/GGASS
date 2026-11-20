@@ -61,12 +61,12 @@ function setEnabled(on: boolean): void {
 let on = enabled();
 
 // ggass.css shows the preview key on a focused popup link only while "on".
-const mark = () => (document.documentElement.dataset.shortcuts = on ? "on" : "off");
-mark();
+const syncShortcutsAttr = () => (document.documentElement.dataset.shortcuts = on ? "on" : "off");
+syncShortcutsAttr();
 
-const sections = () => [...document.querySelectorAll<HTMLElement>("main h2[id], main h3[id]")].filter((h) => h.offsetParent !== null);
+const visibleHeadings = () => [...document.querySelectorAll<HTMLElement>("main h2[id], main h3[id]")].filter((h) => h.offsetParent !== null);
 
-function go(heading: HTMLElement | undefined): void {
+function jumpTo(heading: HTMLElement | undefined): void {
   if (!heading) return;
   // A jump, not a smooth scroll: scrolling motion makes some readers sick.
   heading.scrollIntoView({ block: "start" });
@@ -104,12 +104,11 @@ class KeyShortcuts extends HTMLElement {
         if (input) input.focus();
         else location.assign("/search.html");
       },
-      j: () => go(sections().find((h) => h.getBoundingClientRect().top > 8)),
-      k: () => go(sections().findLast((h) => h.getBoundingClientRect().top < -8)),
+      j: () => jumpTo(visibleHeadings().find((h) => h.getBoundingClientRect().top > 8)),
+      k: () => jumpTo(visibleHeadings().findLast((h) => h.getBoundingClientRect().top < -8)),
       t: () => {
         const toc = document.getElementById("toc");
         if (!toc) return;
-        // display is none only where the contents are a sheet (touch screens).
         if (getComputedStyle(toc).display === "none") toc.showPopover();
         (toc.querySelector<HTMLElement>("a[aria-current]") ?? toc.querySelector<HTMLElement>("a"))?.focus();
       },
@@ -145,7 +144,7 @@ class KeyShortcuts extends HTMLElement {
       box.checked = on;
       box.addEventListener("change", () => {
         on = box.checked;
-        mark();
+        syncShortcutsAttr();
         setEnabled(on);
       });
       label.append(box, " Single-key shortcuts on (Escape always works)");

@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Takes the EXIF block, with or without its "Exif\0\0" prefix.
-
 export type Exif = {
   orientation?: number;
   make?: string;

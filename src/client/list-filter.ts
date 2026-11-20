@@ -28,9 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// `items` is a CSS selector. An item matches on its data-search, if it has one,
-// or else on its text.
-
 class ListFilter extends HTMLElement {
   status?: HTMLElement;
 

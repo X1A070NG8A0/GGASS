@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Each checkbox needs data-done-key: its key in localStorage.
-
 const PREFIX = "done:";
 
 function stored(key: string): boolean {
