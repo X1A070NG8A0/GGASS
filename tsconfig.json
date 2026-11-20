@@ -9,7 +9,9 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true
   },
-  "include": ["site/*.ts", "site/lib/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["src/client/**"]
 }

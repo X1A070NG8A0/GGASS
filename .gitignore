@@ -9,10 +9,9 @@
 !/REUSE.toml
 !/package.json
 !/package-lock.json
-!/site.yaml
 !/tsconfig.json
-!/site/
-!/content/
+!/src/
+!/test/
 
 !*.ts
 !*.js

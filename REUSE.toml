@@ -10,7 +10,9 @@ path = [
   "package.json",
   "package-lock.json",
   "tsconfig.json",
-  "site/client/tsconfig.json",
+  "src/client/tsconfig.json",
+  "src/client/worker/tsconfig.json",
+  "test/fixture/content/photos/sample.jpg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 GGASS project"
