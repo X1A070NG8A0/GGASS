@@ -28,11 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <key-shortcuts> adds single-key shortcuts for readers with a keyboard.
-// The ? key, or the "Keyboard shortcuts" button that shows when it has
-// focus, opens a list of the keys. The list has a switch that turns the
-// single keys off (WCAG 2.1.4), and this browser keeps that choice.
-// No shortcut acts while the focus is in a text field.
+// The switch that turns the single keys off is required by WCAG 2.1.4.
 
 const KEY = "ggass:shortcuts";
 const KEYS: [string, string][] = [
@@ -64,12 +60,10 @@ function setEnabled(on: boolean): void {
 
 let on = enabled();
 
-// The stylesheet shows the preview key on a focused popup link only while
-// the single keys are on.
+// ggass.css shows the preview key on a focused popup link only while "on".
 const mark = () => (document.documentElement.dataset.shortcuts = on ? "on" : "off");
 mark();
 
-// The headings of the main text that show on screen.
 const sections = () => [...document.querySelectorAll<HTMLElement>("main h2[id], main h3[id]")].filter((h) => h.offsetParent !== null);
 
 function go(heading: HTMLElement | undefined): void {
@@ -115,7 +109,7 @@ class KeyShortcuts extends HTMLElement {
       t: () => {
         const toc = document.getElementById("toc");
         if (!toc) return;
-        // A sheet on a touch screen. A box or a column elsewhere.
+        // display is none only where the contents are a sheet (touch screens).
         if (getComputedStyle(toc).display === "none") toc.showPopover();
         (toc.querySelector<HTMLElement>("a[aria-current]") ?? toc.querySelector<HTMLElement>("a"))?.focus();
       },

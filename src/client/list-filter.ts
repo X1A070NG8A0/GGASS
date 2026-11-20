@@ -28,16 +28,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <list-filter items="selector"> holds a search input. Each word typed in it
-// must be in an item, or the item is hidden. An item matches against its
-// data-search attribute, or else its text.
+// `items` is a CSS selector. An item matches on its data-search, if it has one,
+// or else on its text.
 
 class ListFilter extends HTMLElement {
   status?: HTMLElement;
 
   connectedCallback(): void {
     this.addEventListener("input", this);
-    // Screen readers hear how many items are shown (a polite live region).
     if (!this.status) {
       this.status = document.createElement("p");
       this.status.className = "vh";

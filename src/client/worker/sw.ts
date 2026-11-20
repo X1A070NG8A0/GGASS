@@ -28,12 +28,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The service worker for offline reading. The build writes PRECACHE (the
-// stylesheet, scripts, fonts, home page and search) and VERSION before this
-// code. Assets have content hashes in their names, so the worker serves them
-// from the cache first. Pages come from the network first, and the worker
-// keeps a copy of each page that the reader opens, for later without a
-// network.
+// The build writes PRECACHE and VERSION before this code. Assets have hashed
+// names, so they can come from the cache first.
 
 declare const PRECACHE: string[];
 declare const VERSION: string;

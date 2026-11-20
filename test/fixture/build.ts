@@ -28,12 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The test site. It uses each element, side notes, processed images and a
-// site stylesheet, as a real site would.
-//
-//   node test/fixture/build.ts            build into dist/ at the repository root
-//   node test/fixture/build.ts --check    check the pages and links only
-//   node test/fixture/build.ts --serve    build, then serve on http://127.0.0.1:4000
 import { join } from "node:path";
 import { build, defineSite, serve } from "ggass";
 

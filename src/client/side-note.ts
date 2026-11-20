@@ -28,20 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <side-note> is a note that the build placed at the end of its paragraph,
-// with a numbered reference in the text.
-//
-// On a wide screen the stylesheet puts each note in the margin, beside its
-// reference. This script moves a note down when it would cover the note
-// before it. In a browser without CSS anchor positioning, it also sets the
-// height of each note. A tap on the reference highlights the note and moves
-// the focus to it. The number at the start of a note goes back to its
-// reference.
-//
-// On a narrow screen a note follows its paragraph. This script folds the
-// notes, and a tap on a reference opens its note in place. Find in page
-// still finds the text of a folded note (hidden="until-found") and opens it.
-
 const ANCHORS = CSS.supports("anchor-name: --a");
 const UNTIL_FOUND = "onbeforematch" in HTMLElement.prototype;
 const notes = new Set<SideNote>();
@@ -82,7 +68,7 @@ class SideNote extends HTMLElement {
   open = false;
 
   connectedCallback(): void {
-    // In a popup window, the reference is in the same window.
+    // A popup holds a copy of the page, so the id repeats: search this window.
     const scope: ParentNode = this.closest("pop-window") ?? document;
     const ref = scope.querySelector(`#${CSS.escape(this.id.replace(/^note-/, "note-ref-"))}`);
     this.ref = ref instanceof HTMLAnchorElement ? ref : undefined;
@@ -101,7 +87,6 @@ class SideNote extends HTMLElement {
     notes.delete(this);
   }
 
-  // A note in the main text, not in the print list or a hidden copy.
   inPage(): boolean {
     return !this.closest(".endnotes");
   }
@@ -113,7 +98,6 @@ class SideNote extends HTMLElement {
       return;
     }
     if (!(e instanceof MouseEvent) || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    // The number at the start of the note goes back to the reference.
     if (e.currentTarget === this) {
       if (!this.ref || !(e.target instanceof Element && e.target.closest(".note-num"))) return;
       e.preventDefault();
@@ -122,8 +106,7 @@ class SideNote extends HTMLElement {
     }
     e.preventDefault();
     if (inMargin(this)) {
-      // The note is beside its reference already. Highlight it, and move the
-      // focus to it, so that a keyboard or screen reader user reads it next.
+      // Focus the note, so keyboard and screen reader users read it next.
       this.classList.remove("flash");
       void this.offsetWidth;
       this.classList.add("flash");

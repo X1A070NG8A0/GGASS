@@ -28,8 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// A local web server for the output folder. It binds to 127.0.0.1, so only
-// this computer can open the site.
+// Binds to 127.0.0.1 by default, so only this computer can open the site.
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
@@ -68,8 +67,7 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
       res.writeHead(404, { "content-type": "text/plain" }).end("not found");
       return;
     }
-    // Caching: the browser keeps each file and asks "changed since?" on each
-    // use (no-cache). If the file did not change, the answer is a short 304.
+    // no-cache: ask before each use. An unchanged file gets a short 304.
     const modified = statSync(file).mtime;
     modified.setMilliseconds(0); // HTTP dates have whole seconds
     const headers = {
@@ -83,7 +81,7 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
       return;
     }
     res.writeHead(200, headers);
-    // A file that goes away during the read ends this response, not the server.
+    // Without this, a file deleted during the read crashes the server.
     createReadStream(file).on("error", () => res.destroy()).pipe(res);
   }).listen(port, host, () => {
     if (!options.quiet) console.log(`Site on http://${host}:${port}`);

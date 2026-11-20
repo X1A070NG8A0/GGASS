@@ -28,19 +28,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The build context, the step hooks, the timing report and small helpers
-// that several build modules share.
 import { sep } from "node:path";
 import type { ResolvedConfig } from "./config.ts";
 import type { Page } from "./content.ts";
 
-// A file system path with forward slashes, for URLs and messages.
 export const slashes = (path: string): string => path.split(sep).join("/");
 
-// "85 ms" below a second, "1.23 s" above.
 export const formatMs = (n: number): string => (n < 1000 ? `${n.toFixed(0)} ms` : `${(n / 1000).toFixed(2)} s`);
 
-// A file that the pages link to, with its Subresource Integrity hash.
 export type Asset = { url: string; integrity: string };
 
 export type BuildContext = {
@@ -58,7 +53,6 @@ export type BuildContext = {
   emit(path: string, data: string | Uint8Array): void;
 };
 
-// A build step that a site adds with the `steps` configuration.
 export type Step = {
   name: string;
   // Runs for each page after the built-in transforms. Returns the new body.

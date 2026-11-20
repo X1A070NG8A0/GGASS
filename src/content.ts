@@ -28,22 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Loads the pages and the other files in the content folder.
-//
-// A page is an HTML file that starts with a YAML header inside an HTML
-// comment, so a browser that opens the file directly does not show it. The
-// body is plain HTML and holds its own <h1>:
-//
-//   <!--
-//   title: Getting started   # required: the <title> and the search result
-//   kind: Guide              # optional: the label in search results (default "Page")
-//   -->
-//   <h1>Getting started</h1>
-//   <p>Body HTML.</p>
-//
-// content/index.html becomes /index.html, content/guide/start.html becomes
-// /guide/start.html. Other files in the content folder (images, for example)
-// are copied to the same path.
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import YAML from "yaml";
@@ -57,16 +41,14 @@ export type Page = {
   title: string;
   kind: string;
   body: string;
-  // The source file, relative to the site root, for error messages.
+  // Relative to the site root.
   file: string;
-  // The h2 and h3 headings, filled by the build.
   toc: TocEntry[];
 };
 
 export type Content = { pages: Map<string, Page>; files: string[]; errors: string[] };
 
-// A YAML header value as text. YAML reads `title: 2026` as a number, so a
-// number or a true/false becomes text too. A list or a map gives "".
+// YAML reads `title: 2026` as a number, so a number or true/false is text.
 const plain = (value: unknown): string =>
   typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : "";
 

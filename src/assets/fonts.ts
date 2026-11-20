@@ -28,13 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Font processing: keep only the characters that the site uses (subsetting),
-// convert the font to WOFF2, put a content hash in the name, write the
-// @font-face rules, and add preload links.
-//
-// Subsetting and conversion need subset-font (HarfBuzz compiled to
-// WebAssembly). Without it, a font must already be WOFF2, and it is used
-// whole.
 import { readFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import type { FontConfig } from "../config.ts";
@@ -61,7 +54,6 @@ export async function buildFonts(ctx: BuildContext, siteText: string): Promise<F
     warnings.push("fonts: subset-font is not installed, so fonts are used whole. Install it in the site: npm install --save-dev subset-font");
   }
 
-  // The WOFF2 data of one font, or undefined after an error.
   const fontData = async (font: FontConfig, path: string): Promise<Uint8Array | undefined> => {
     let input: Buffer;
     try {
@@ -75,7 +67,7 @@ export async function buildFonts(ctx: BuildContext, siteText: string): Promise<F
       return cached(cacheDir, `${shortHash(input, chars)}.woff2`, () => subsetFont(input, chars, { targetFormat: "woff2" }));
     }
     if (extname(path).toLowerCase() === ".woff2") return input;
-    // No subset: convert only. fontverter comes with subset-font.
+    // fontverter is installed with subset-font.
     const verter = await optional<FontVerter>("fontverter", config.root);
     if (!verter) {
       errors.push(`fonts: "${font.src}" is not WOFF2. Convert it, or install subset-font: npm install --save-dev subset-font`);
@@ -84,7 +76,6 @@ export async function buildFonts(ctx: BuildContext, siteText: string): Promise<F
     return cached(cacheDir, `${shortHash(input, "whole")}.woff2`, () => verter.convert(input, "woff2"));
   };
 
-  // All fonts at once. The rules keep the order of the configuration.
   const results = await Promise.all(
     config.fonts.map(async (font) => {
       const path = resolve(config.root, font.src);

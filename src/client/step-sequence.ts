@@ -28,11 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <step-sequence> holds a drawn sequence: an SVG with one .pt group per step
-// and an ordered legend in the same order. It adds Previous and Next buttons
-// to step through the order. The current step shows in the drawing and in
-// the legend. Pointing to a point or a legend line shows that step. Without
-// JavaScript, the drawing and the numbered legend stay as they are.
+// Expects one svg .pt group per step and a .legend list in the same order.
 
 class StepSequence extends HTMLElement {
   points: Element[] = [];

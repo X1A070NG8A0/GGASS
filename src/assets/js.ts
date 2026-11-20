@@ -28,18 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// JavaScript processing: turn TypeScript and JSX into JavaScript, bundle,
-// remove unused code (tree shaking), minify, write source maps, put content
-// hashes in the names, and give the Subresource Integrity values.
-//
-// Each custom element is its own entry. A small loader module looks for
-// elements that are not defined yet and loads their modules, so a page
-// loads only the code for the elements that it holds. An import map names
-// each module and carries its integrity value.
-//
-// With esbuild, all of the steps above. Without it, the built-in code strips
-// the TypeScript types with Node, rewrites the imports to the hashed names
-// and gives the integrity values. It does not bundle, minify or read JSX.
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
 import { basename, dirname, join, relative, resolve } from "node:path";
@@ -52,7 +40,7 @@ const CLIENT = join(import.meta.dirname, "..", "client");
 const LOADER = join(CLIENT, "loader.ts");
 const WORKER = join(CLIENT, "worker", "sw.ts");
 
-// The elements of GGASS, each with the module in src/client/ of the same name.
+// Each tag needs a module of the same name in src/client/.
 const BUILTIN_COMPONENTS = [
   "check-list", "list-filter", "site-search", "pop-link", "section-tabs", "step-sequence",
   "photo-zoom", "side-note", "page-toc", "key-shortcuts", "share-button",
@@ -62,11 +50,8 @@ const BANNER = "/*! GGASS components | Apache-2.0 OR LGPL-2.1-or-later */";
 
 export type Scripts = {
   loader: Asset;
-  // The module for each element, by tag name.
   modules: Map<string, Asset>;
-  // Each JavaScript file, for the integrity values in the import map.
   files: Asset[];
-  // The static imports of each file, by URL, for modulepreload links.
   imports: Map<string, string[]>;
 };
 
@@ -145,7 +130,6 @@ export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
     return result;
   }
 
-  // The built-in route: one output file for each source file.
   const done = new Map<string, Asset>();
   const visiting = new Set<string>();
   const emitModule = (file: string, name: string): Asset | undefined => {
@@ -192,8 +176,7 @@ export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
   return result;
 }
 
-// The service worker, at /sw.js so that it serves the whole site. It keeps
-// the files in `precache` at install, and each page that the reader opens.
+// At /sw.js, so that the scope of the worker is the whole site.
 export async function buildServiceWorker(ctx: BuildContext, precache: string[]): Promise<void> {
   const { config, errors } = ctx;
   const source = readFileSync(WORKER, "utf8");

@@ -28,13 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The build: loads the pages, transforms them, checks the links, processes
-// the assets, puts each page in the layout and writes the output folder.
-//
-// A site calls it from its own build script:
-//
-//   import { build } from "ggass";
-//   await build({ name: "My site", nav: [{ href: "/guide/", label: "Guide" }] });
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { buildCss } from "./assets/css.ts";
@@ -50,7 +43,7 @@ import { customTags, headings, popups, sideNotes } from "./transform.ts";
 export type BuildOptions = {
   // Check the pages and links only. Write nothing.
   check?: boolean;
-  // Print nothing.
+  // Hides the summary and the warnings. Errors still print.
   quiet?: boolean;
 };
 
@@ -68,8 +61,6 @@ const searchPage = `<h1>Search</h1>
 <site-search><label class="field" for="search-q">Search this site</label><input type="search" id="search-q" name="q" autofocus><ol class="results"></ol></site-search>
 <noscript><p>Search needs JavaScript. Without it, start from the <a href="/">home page</a>.</p></noscript>`;
 
-// The text of a page for search and font subsets, without the print copy of
-// the notes and without the note numbers.
 const pageText = (page: Page) =>
   textOf(page.body.replace(/<section class="endnotes"[\s\S]*?<\/section>/, "").replace(/<a class="note-(?:ref|num)"[^>]*>\d+<\/a>/g, ""));
 
@@ -112,7 +103,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
     return { ok, errors, warnings, pages: pages.size, outputs: [...outputs.keys()].sort(), timings: timings.list };
   };
 
-  // ---------- pages ----------
   const popTargets = new Set<string>();
   await timings.run("pages", () => {
     for (const page of pages.values()) {
@@ -129,9 +119,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
     });
   }
 
-  // ---------- links ----------
-  // Each root-relative link must open a page, a generated file, an asset or
-  // a file from the content folder.
   await timings.run("links", () => {
     const generated = new Set(["/search.html", "/search-index.json", ...(config.offline ? ["/sw.js"] : [])]);
     const fileSet = new Set(files);
@@ -150,7 +137,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
   }
   if (errors.length) return finish(false);
 
-  // ---------- assets ----------
   const texts = new Map([...pages.values()].map((p) => [p.url, pageText(p)]));
   // Only the footer is HTML. The other parts are text already.
   const siteText = [config.name, textOf(config.footer), ...config.nav.map((n) => n.label), ...[...pages.values()].map((p) => p.title), ...texts.values()].join(" ");
@@ -163,7 +149,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
   }
   if (errors.length || !js) return finish(false);
 
-  // ---------- layout ----------
   await timings.run("layout", () => {
     const shared = [
       ...fonts.preloads,
@@ -172,8 +157,7 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
     ].filter(Boolean);
     const loader = `<script type="module" src="${js.loader.url}" integrity="${js.loader.integrity}"></script>`;
     const sums = new Map(js.files.map((f) => [f.url, f.integrity]));
-    // modulepreload links for the modules of the elements on the page and
-    // their static imports, so the browser fetches them all at once.
+    // Static imports are preloaded too, so all modules load at once.
     const preloads = (html: string) => {
       const seen = new Set<string>();
       const add = (url: string) => {
@@ -194,7 +178,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
       const head = [...shared, ...preloads(html), loader, ...ctx.head].join("\n");
       return html.replace("<!--head-->", head);
     };
-    // A table of contents only on a page with enough headings.
     const toc = (page: Page) => (config.toc && page.toc.length >= config.toc.min ? page.toc : []);
     for (const page of pages.values()) {
       ctx.emit(page.url, render(page.url, page.title, toc(page), page.body));
@@ -204,14 +187,12 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
     ctx.emit("search-index.json", JSON.stringify([...pages.values()].map((p) => ({ k: p.kind, t: p.title, x: texts.get(p.url), u: p.url }))));
   });
 
-  // ---------- service worker ----------
   if (config.offline) {
     const assets: Asset[] = [...(css ? [css] : []), ...js.files];
     const precache = ["/", "/search.html", "/search-index.json", ...assets.map((a) => a.url), ...[...outputs.keys()].filter((k) => k.startsWith("assets/fonts/")).map((k) => `/${k}`)];
     await timings.run("offline", () => buildServiceWorker(ctx, precache));
   }
 
-  // ---------- write ----------
   await timings.run("write", () => {
     rmSync(config.out, { recursive: true, force: true });
     for (const [rel, data] of outputs) {

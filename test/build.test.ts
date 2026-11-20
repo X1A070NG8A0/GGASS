@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Builds the test site twice, with and without the optional packages, and
-// checks the output.
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -43,14 +41,12 @@ after(() => rmSync(temp, { recursive: true, force: true }));
 
 const read = (out: string, rel: string) => readFileSync(join(out, rel), "utf8");
 
-// The import map of a page.
 const importMap = (html: string) => {
   const json = /<script type="importmap">(.*?)<\/script>/.exec(html)?.[1];
   assert.ok(json, "the page has an import map");
   return JSON.parse(json) as { imports: Record<string, string>; integrity: Record<string, string> };
 };
 
-// The integrity value in each tag must match the file it names.
 function checkIntegrity(out: string, html: string): number {
   let n = 0;
   for (const m of html.matchAll(/(?:href|src)="(\/assets\/[^"]+)" integrity="([^"]+)"/g)) {

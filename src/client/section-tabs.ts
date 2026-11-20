@@ -28,13 +28,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <section-tabs> holds a <nav> of tab links. Each tab links to a real page,
-// and each of those pages has a copy of the section (a <section id="...">)
-// that holds this element, with its own tab current. A click gets that page
-// and puts its copy of the section in place of the current one, with no
-// fade. The address changes, and the Back button shows the earlier tab.
-// A modified click (Ctrl, Shift, Alt, Cmd) or a failed request falls back to
-// a normal page load. Without JavaScript, the links open the tab pages.
+// Each tab page must hold a copy of this section, with the same id and its own
+// tab current.
 
 class SectionTabs extends HTMLElement {
   request?: AbortController;
@@ -68,7 +63,6 @@ class SectionTabs extends HTMLElement {
   }
 
   async show(href: string, push: boolean): Promise<void> {
-    // A second click cancels the first request.
     this.request?.abort();
     this.request = new AbortController();
     try {
@@ -81,7 +75,7 @@ class SectionTabs extends HTMLElement {
       if (push) history.pushState(null, "", href);
       document.title = page.title;
       current.replaceWith(next);
-      // The clicked link is gone. Put focus on the new current tab.
+      // The clicked link was replaced, so focus the new current tab.
       if (document.activeElement === document.body) {
         const now = next.querySelector("section-tabs a[aria-current]");
         if (now instanceof HTMLElement) now.focus();

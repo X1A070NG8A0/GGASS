@@ -28,9 +28,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Reads the width and height of an image from its file header, with no
-// image library: PNG, GIF, JPEG, WebP and SVG. A JPEG photo that EXIF marks
-// as turned on its side gives its displayed size.
+// Gives the displayed size: a JPEG that EXIF turns on its side has its width
+// and height swapped.
 import { readExif } from "./exif.ts";
 
 export type Size = { width: number; height: number };
@@ -82,7 +81,6 @@ function svg(text: string): Size | undefined {
   const box = tag.match(/\sviewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*["']/);
   if (!box) return undefined;
   const w = Number(box[1]), h = Number(box[2]);
-  // A width alone scales the height by the view box, and the same for a height.
   if (width) return { width: Math.round(width), height: Math.round((width * h) / w) };
   if (height) return { width: Math.round((height * w) / h), height: Math.round(height) };
   return { width: Math.round(w), height: Math.round(h) };

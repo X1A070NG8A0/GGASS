@@ -30,6 +30,5 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/* The stylesheet of the test site. The build puts it after the GGASS
-   stylesheet. The @import shows that the bundler inlines imports. */
+/* The @import tests that the bundler inlines imports. */
 @import "./parts/figures.css";

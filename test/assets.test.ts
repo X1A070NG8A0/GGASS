@@ -28,8 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Unit tests for the asset helpers: CSS minifier, image spec, image sizes,
-// EXIF, image processing and fonts.
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -146,8 +144,7 @@ describe("processImage", () => {
   });
 });
 
-// Fonts: the test needs a TrueType font. It uses a system font when one
-// exists, because the repository holds no font files.
+// The repository holds no font files, so the test uses a system font.
 const FONT = ["C:/Windows/Fonts/arial.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"].find((f) => existsSync(f));
 
 describe("fonts", { skip: FONT ? false : "no system font found" }, () => {

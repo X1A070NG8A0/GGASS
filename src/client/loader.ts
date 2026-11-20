@@ -28,13 +28,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The one script that each page loads. It finds the custom elements that are
-// not defined yet and loads the module for each one. The import map of the
-// page names the modules ("ggass/check-list") and holds their integrity
-// values. The loader watches the page, so elements that arrive later (in a
-// popup window or a swapped tab) also start. Each element holds plain HTML
-// that works without JavaScript, so a module that fails to load breaks
-// nothing.
+// Loads the module of each undefined custom element through the import map
+// ("ggass/<tag>"), also for elements added later.
 
 const asked = new Set<string>();
 
@@ -61,7 +56,6 @@ new MutationObserver((records) => {
   for (const r of records) for (const node of r.addedNodes) if (node instanceof Element) load(node);
 }).observe(document.documentElement, { childList: true, subtree: true });
 
-// Offline reading, if the site turns it on.
 const worker = document.documentElement.dataset.sw;
 if (worker && "serviceWorker" in navigator) {
   navigator.serviceWorker.register(worker).catch((e: unknown) => console.error("GGASS: the service worker did not start", e));

@@ -28,7 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// HTML helpers and the page layout.
 import type { ResolvedConfig } from "./config.ts";
 import type { TocEntry } from "./content.ts";
 
@@ -36,15 +35,12 @@ const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;
 
 export const esc = (s: unknown): string => String(s ?? "").replace(/[&<>"']/g, (c) => ENTITIES[c]);
 
-// The page that a root-relative link opens: no query or fragment, and a
-// folder link ("/guide/") opens its index.html.
 export const target = (href: string): string => {
   const path = href.split(/[?#]/)[0];
   return path.endsWith("/") ? `${path}index.html` : path;
 };
 
-// The plain text of an HTML fragment. &amp; is decoded last, so that the
-// text "&amp;lt;" stays "&lt;".
+// &amp; must be decoded last, or the text "&amp;lt;" becomes "<".
 export const textOf = (html: string): string =>
   html
     .replace(/<(script|style)\b[\s\S]*?<\/\1>|<[^>]+>/g, " ")
@@ -57,7 +53,6 @@ export const textOf = (html: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-// An ID from heading text: lower case, words joined by hyphens.
 export const slug = (text: string): string =>
   text
     .toLowerCase()
@@ -66,7 +61,6 @@ export const slug = (text: string): string =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "") || "section";
 
-// The attributes of a start tag, such as `<img src="a.png" alt="A" hidden>`.
 export function attrs(tag: string): Map<string, string> {
   const out = new Map<string, string>();
   const inner = tag.replace(/^<[\w-]+/, "").replace(/\/?>$/, "");
@@ -75,16 +69,13 @@ export function attrs(tag: string): Map<string, string> {
   return out;
 }
 
-// A start tag from a name and attributes. An empty value writes a bare
-// attribute, such as `hidden`.
+// An empty value writes a bare attribute, such as `hidden`.
 export function tag(name: string, list: Map<string, string>): string {
   const parts = [...list].map(([k, v]) => (v === "" ? ` ${k}` : ` ${k}="${esc(v)}"`));
   return `<${name}${parts.join("")}>`;
 }
 
-// The table of contents: h2 entries, with their h3 entries in a nested list.
 function tocList(entries: TocEntry[]): string {
-  // An h3 goes under the h2 before it. An h3 before the first h2 is a top item.
   const items: { entry: TocEntry; children: TocEntry[] }[] = [];
   for (const entry of entries) {
     const last = items.at(-1);
@@ -97,8 +88,6 @@ function tocList(entries: TocEntry[]): string {
   return `<ol>${items.map(item).join("")}</ol>`;
 }
 
-// A nav link is current on its own page, and a folder link ("/guide/") is
-// current on each page in that folder.
 const isCurrent = (href: string, url: string): boolean => target(href) === url || (href.endsWith("/") && url.startsWith(href));
 
 export type LayoutInput = {
@@ -107,14 +96,9 @@ export type LayoutInput = {
   title: string;
   toc: TocEntry[];
   body: string;
-  // The stylesheet, scripts and other tags for the <head>.
   head: string;
 };
 
-// The page frame. On a wide screen: the table of contents, the text and a
-// margin for side notes. On a narrow screen: one column. On a phone or a
-// tablet, the page tools are in a bar at the bottom, in reach of the thumb.
-// The stylesheet chooses.
 export function layout({ config, url, title, toc, body, head }: LayoutInput): string {
   const nav = config.nav.map((n) => `<a href="${esc(n.href)}"${isCurrent(n.href, url) ? ' aria-current="page"' : ""}>${esc(n.label)}</a>`).join("\n    ");
   const contents = toc.length

@@ -28,7 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The site configuration: the object that a site passes to build().
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { Step } from "./steps.ts";
@@ -42,7 +41,6 @@ export type Engine = "auto" | "esbuild" | "builtin";
 export type ImageFormat = "avif" | "webp" | "jpeg" | "png";
 
 export type FontConfig = {
-  // The name for font-family in CSS.
   family: string;
   // The font file, relative to the site root: .ttf, .otf, .woff or .woff2.
   src: string;
@@ -54,7 +52,6 @@ export type FontConfig = {
   // "auto" (the default) keeps the characters that the pages use. A string
   // keeps those characters. false keeps the whole font.
   subset?: "auto" | false | string;
-  // Adds <link rel="preload"> to each page. Use it for the body text font.
   preload?: boolean;
   unicodeRange?: string;
 };
@@ -98,7 +95,6 @@ export type ImagesConfig = {
   formats?: ImageFormat[];
   // Encoder quality, 1 to 100. Each encoder has its own default.
   quality?: number;
-  // The sizes attribute: how wide the image shows at each screen width.
   sizes?: string;
 };
 
@@ -112,18 +108,16 @@ export type SiteConfig = {
   root?: string;
   // The pages, relative to the root. The default is "content".
   content?: string;
-  // The output, relative to the root. The default is "dist".
+  // The output, relative to the root. The default is "dist". Each build
+  // deletes it first.
   out?: string;
   // The cache for processed images and fonts. The default is
   // node_modules/.cache/ggass in the nearest node_modules folder.
   cache?: string;
-  // Puts a content hash in each asset name, so browsers can keep assets.
   fingerprint?: boolean;
   // A table of contents for pages with at least `min` h2 and h3 headings.
   toc?: { min?: number } | false;
-  // Single-key shortcuts. The reader can turn them off.
   shortcuts?: boolean;
-  // A share button in the bar at the bottom of phones and tablets.
   share?: boolean;
   // A service worker that keeps the assets and the visited pages for
   // offline reading.
@@ -157,7 +151,6 @@ export type ResolvedConfig = {
   steps: Step[];
 };
 
-// The nearest node_modules folder at or above `from`.
 function nodeModules(from: string): string | undefined {
   for (let dir = from; ; dir = dirname(dir)) {
     if (existsSync(join(dir, "node_modules"))) return join(dir, "node_modules");

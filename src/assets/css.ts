@@ -28,13 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// CSS processing: bundle the @import files, lower new syntax for older
-// browsers, minify, write a source map, put a content hash in the name, and
-// give the Subresource Integrity value.
-//
-// With esbuild, all of these. Without it, the built-in code bundles,
-// minifies, hashes and gives the integrity value, but writes no source map
-// and does not lower syntax.
 import { readFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import type * as Esbuild from "esbuild";
@@ -44,9 +37,8 @@ import { engine, esbuildErrors } from "./optional.ts";
 
 const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
 
-// Minifies CSS with care: it removes comments (but keeps /*! ... */), and it
-// removes white space only where white space never has meaning. Strings stay
-// as written. It does not touch + and - inside calc().
+// Removes comments except /*! ones, and only the white space that never has
+// meaning. Strings and calc() stay as written.
 export function minifyCss(css: string): string {
   let out = "";
   let code = "";
@@ -55,7 +47,6 @@ export function minifyCss(css: string): string {
       .replace(/\s+/g, " ")
       .replace(/\s*([{};,>])\s*/g, "$1")
       .replace(/:\s+/g, ":");
-    // No space is needed after a kept comment.
     if (out.endsWith("*/")) done = done.replace(/^ /, "");
     out += done;
     code = "";
@@ -89,8 +80,7 @@ export function minifyCss(css: string): string {
 
 const FILE_TYPES = /\.(woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif)$/i;
 
-// The built-in bundler: inlines each relative @import, and copies each file
-// that a relative url() names into the assets folder.
+// Also copies each file that a relative url() names into the assets folder.
 function bundle(file: string, ctx: BuildContext, seen: Set<string>): string {
   let css: string;
   try {
@@ -127,8 +117,6 @@ function bundle(file: string, ctx: BuildContext, seen: Set<string>): string {
   });
 }
 
-// Builds the site stylesheet: the GGASS stylesheet (unless css.base is
-// false), the site stylesheet, and `extra` (the @font-face rules).
 export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset | undefined> {
   const { config, errors } = ctx;
   const files = [...(config.css.base ? [BASE_CSS] : []), ...(config.css.entry ? [config.css.entry] : [])];
@@ -154,9 +142,8 @@ export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset 
         minify: config.css.minify,
         sourcemap: config.css.sourcemap ? "external" : false,
         outfile: join(config.out, "assets", "style.css"),
-        // Root-relative URLs point into the site, so they stay as written.
-        // (esbuild's `external: ["/*"]` also matches resolved file paths, so
-        // a plugin does this job.)
+        // esbuild's `external: ["/*"]` also matches resolved file paths, so a
+        // plugin keeps root-relative URLs as written.
         plugins: [{ name: "root-relative", setup: (b) => void b.onResolve({ filter: /^\// }, (args) => (args.kind === "entry-point" ? undefined : { path: args.path, external: true })) }],
         loader: { ".woff2": "file", ".woff": "file", ".ttf": "file", ".otf": "file", ".png": "file", ".jpg": "file", ".jpeg": "file", ".gif": "file", ".svg": "file", ".webp": "file", ".avif": "file" },
         assetNames: config.fingerprint ? "[name]-[hash]" : "[name]",

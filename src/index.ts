@@ -28,7 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The public interface of GGASS. A site imports from here.
 import type { SiteConfig } from "./config.ts";
 
 export { build, type BuildOptions, type BuildResult } from "./build.ts";
@@ -43,6 +42,6 @@ export { readDimensions, type Size } from "./assets/dimensions.ts";
 export { readExif, type Exif } from "./assets/exif.ts";
 export { imageMetadata, parseImageSpec, processImage, type ImageMetadata, type ImageOps, type ImageOverlay, type ImageResult } from "./assets/images.ts";
 
-// A typed configuration object. It only returns its argument, so that an
-// editor can check and complete the configuration.
+// Returns its argument unchanged. It exists so that an editor can type-check
+// and complete the configuration.
 export const defineSite = (site: SiteConfig): SiteConfig => site;

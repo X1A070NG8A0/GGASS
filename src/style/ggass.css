@@ -30,27 +30,12 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/* The GGASS stylesheet.
-   Plain, readable text that is dense with links, with gwern-style popup
-   windows and side notes. One HTML page has two presentations, and media
-   queries on the screen width and the input choose between them:
-   - Wide (72rem and more): the table of contents in a column on the left,
-     the text, and a margin on the right for side notes.
-   - Narrow: one column, with notes after their paragraph. On a touch screen
-     (phones and tablets), the page tools (contents, search, share, top) are
-     in a bar at the bottom, in reach of the thumb, and the contents and
-     popups open as sheets. With a mouse, the contents are a box at the top.
-   Print is a third presentation: no navigation, the notes as a list at the
-   end, and the address after each external link.
-   Layers, lowest first. A rule in a later layer wins over an earlier layer,
-   whatever the selector specificity. */
+/* A later layer wins over an earlier one, whatever the specificity. */
 @layer base, layout, content, components, popups, presentation, print;
 
-/* No transitions between pages or tabs: a new page or tab shows at once.
-   Fades and slides between pages make some readers sick. */
+/* No transitions between pages or tabs: they make some readers sick. */
 
 @layer base {
-  /* Each color is one token: light-dark(light value, dark value). */
   :root {
     color-scheme: light dark;
     --bg: light-dark(#fdfdfb, #161614);
@@ -58,9 +43,9 @@
     --muted: light-dark(#6b6b66, #9a978f);
     --rule: light-dark(#d9d6cf, #3a3833);
     --link: light-dark(#1f4e8c, #8fb4e8);
-    --accent: light-dark(#a33a1f, #e08a6e);       /* warnings, the current step */
+    --accent: light-dark(#a33a1f, #e08a6e);
     --accent-bg: light-dark(#fbe9e3, #2e1d17);
-    --second: light-dark(#9a6b00, #d9ad4a);       /* cautions, tabs */
+    --second: light-dark(#9a6b00, #d9ad4a);
     --second-bg: light-dark(#fbf3df, #2c2615);
     --note-bg: light-dark(#eef3f8, #1a2230);
     --pop-bg: light-dark(#ffffff, #22211e);
@@ -69,7 +54,7 @@
     --control: light-dark(#8a877f, #77746c);
     /* The keyboard focus outline: at least 3:1 against both backgrounds. */
     --focus: light-dark(#1f4e8c, #8fb4e8);
-    /* The reader's own fonts. A site that loads font files sets these. */
+    /* A site that loads font files sets these. */
     --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
     --mono: var(--sans);
     --code: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -79,11 +64,9 @@
     --margin-width: 15rem;
     --gap: 2.5rem;
     --frame: calc(var(--toc-width) + var(--measure) + var(--margin-width) + 2 * var(--gap));
-    /* Space at the sides of the screen, and around a notch or rounded corner. */
     --edge-left: max(16px, env(safe-area-inset-left));
     --edge-right: max(16px, env(safe-area-inset-right));
   }
-  /* More contrast, when the reader asks for it in the system settings. */
   @media (prefers-contrast: more) {
     :root {
       --fg: light-dark(#111111, #f4f2ec);
@@ -96,15 +79,13 @@
   }
   * { box-sizing: border-box; }
   html { background: var(--bg); }
-  /* Sizes are in rem, so the text follows the font size that the reader sets
-     in the browser. 1.0625rem is 17px at the default 16px. A long word or
-     address breaks, so the page never scrolls sideways at 400% zoom. */
+  /* rem, not px, so text follows the font size of the reader (1.0625rem is 17px
+     by default). break-word stops sideways scrolling at 400% zoom. */
   body {
     margin: 0; padding: 0 var(--edge-right) 4rem var(--edge-left);
     font: 1.0625rem/1.6 var(--sans); color: var(--fg); background: var(--bg);
     overflow-wrap: break-word;
   }
-  /* A clear keyboard focus outline on everything, in both themes. */
   :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
   pre { overflow-x: auto; }
   h1, h2, h3, h4 { line-height: 1.25; font-weight: 700; text-wrap: balance; }
@@ -119,32 +100,25 @@
   caption { text-align: left; font-weight: 600; padding: .3rem 0; }
   th, td { text-align: left; vertical-align: top; padding: .25rem .5rem; border-bottom: 1px solid var(--rule); }
   th[scope="row"] { font-weight: normal; }
-  /* Without JavaScript, the site is plain HTML. Hide the controls that need
-     JavaScript, and the text that only applies when it runs. */
+  /* Hide the controls that need JavaScript until their element is defined. */
   list-filter:not(:defined), site-search:not(:defined), share-button:not(:defined) { display: none; }
-  /* Custom elements are inline by default. These wrap blocks. */
   check-list, list-filter, site-search, step-sequence, section-tabs, page-toc, side-note { display: block; }
   photo-zoom, key-shortcuts, share-button { display: contents; }
   body:has(check-list:not(:defined)) .ticks-hint { display: none; }
-  /* Hidden on screen, read by screen readers. */
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  /* The skip link and the shortcuts button show when they have keyboard focus. */
   .skip { position: absolute; left: -999px; top: 0; }
   .skip:focus { left: 8px; top: 8px; z-index: 10; padding: .3rem .6rem; font: inherit; color: var(--link); background: var(--bg); border: 1px solid var(--link); }
   /* A wide table scrolls inside its box, so the page does not scroll sideways. */
   .table-scroll { overflow-x: auto; margin: 1rem 0; > table { margin: 0; } }
   input[type="search"] { width: 100%; font: inherit; padding: .4rem .6rem; border: 1px solid var(--control); background: var(--bg); color: var(--fg); margin: .5rem 0 1rem; }
   ::placeholder { color: var(--muted); opacity: 1; }
-  /* A visible label above a field. A placeholder is not a label. */
   label.field { display: block; margin-top: .5rem; font-size: .95rem; font-weight: 600; }
   label.field + input { margin-top: .25rem; }
   .meta, .hint { color: var(--muted); font-size: .88rem; }
 }
 
 @layer layout {
-  /* Narrow first: one column. */
   header.site, .frame, footer.site { max-width: var(--measure); margin-inline: auto; }
-  /* Content in the page and in a popup window adapts to its own width. */
   main { container-type: inline-size; }
 
   header.site {
@@ -156,9 +130,8 @@
   }
   footer.site { margin-top: 3rem; border-top: 1px solid var(--rule); padding-top: .8rem; color: var(--muted); font-size: .85rem; }
 
-  /* Site name in the "Helvetica Diagonal" style: heavy, uppercase, steep
-     oblique. A thin stroke makes the bold heavier. The slant is a CSS skew
-     of the upright bold face, after a 1.06 stretch. */
+  /* The skew and the 1.06 stretch make a steep oblique, and the thin stroke
+     makes the bold heavier. */
   .brand, .brandmark {
     font-family: var(--sans); font-weight: 700; font-style: normal; text-transform: uppercase;
     letter-spacing: -.02em; -webkit-text-stroke: .035em currentColor;
@@ -181,7 +154,6 @@
 }
 
 @layer content {
-  /* Numbered steps, with notes, cautions and warnings as callouts. */
   .kind { font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .05em; }
   .steps {
     padding-left: 1.5rem;
@@ -193,7 +165,6 @@
     > li.warning { background: var(--accent-bg); border-color: var(--accent); }
   }
 
-  /* Photos and drawn diagrams */
   .figs { display: flex; flex-wrap: wrap; gap: .6rem; margin: .4rem 0 .6rem; }
   figure.photo {
     margin: 0; max-width: 17rem;
@@ -210,7 +181,6 @@
     figcaption { font-size: .88rem; }
     .legend { padding-left: 1.2rem; margin: .4rem 0; }
   }
-  /* <step-sequence>: the current step shows in the drawing and the legend. */
   step-sequence {
     .seqbar { font-size: .85rem; margin: .4rem 0; }
     .seqbar button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--control); padding: .15rem .6rem; min-block-size: 24px; cursor: pointer; }
@@ -219,7 +189,6 @@
     .pt.on text { fill: var(--bg); }
     .legend li.on { background: var(--second-bg); outline: 1px solid var(--second); }
   }
-  /* <photo-zoom>: a click opens the photo large in a dialog. */
   photo-zoom a { cursor: zoom-in; }
   dialog.zoom {
     padding: .5rem; border: 1px solid var(--rule); background: var(--pop-bg); color: var(--fg);
@@ -234,7 +203,6 @@
 }
 
 @layer components {
-  /* Checklists. <check-list> keeps the ticks. */
   .checklist {
     list-style: none; padding-left: 0;
     li { padding: .15rem .4rem; margin: .15rem 0; border-left: 4px solid var(--rule); }
@@ -247,7 +215,6 @@
     }
   }
 
-  /* <section-tabs>: binder tabs over a page */
   section-tabs nav {
     display: flex; flex-wrap: wrap; gap: .25rem .2rem; align-items: flex-end;
     a {
@@ -265,8 +232,7 @@
 }
 
 @layer popups {
-  /* Gwern-style popup windows. Each is a manual popover in the top layer.
-     The user agent hides a closed popover, so display is set only when open. */
+  /* The user agent hides a closed popover, so display is set only when open. */
   pop-window {
     position: fixed; inset: auto; margin: 0; padding: 0;
     width: min(36rem, 92vw); max-height: 70vh; overflow: hidden;
@@ -274,7 +240,6 @@
     box-shadow: 0 8px 28px rgb(0 0 0 / .22); font-size: .88rem; line-height: 1.5;
     &:popover-open { display: flex; flex-direction: column; }
     &.pinned { border-color: var(--link); }
-    /* Below the link, or the side with the most room. */
     &.anchored {
       position-area: bottom span-right;
       position-try: most-height flip-inline, flip-block, flip-block flip-inline;
@@ -300,7 +265,6 @@
 }
 
 @layer presentation {
-  /* ---------- Side notes ---------- */
   .note-ref {
     font-size: .75em; line-height: 0; vertical-align: super; padding-inline: .12em;
     text-decoration: none; font-variant-numeric: tabular-nums;
@@ -309,7 +273,7 @@
     margin: .4rem 0 .9rem; padding: .1rem 0 .1rem .8rem; border-left: 2px solid var(--rule);
     font-size: .88rem; line-height: 1.5;
     .note-num { font-weight: 700; text-decoration: none; margin-right: .15rem; }
-    /* Folded by the script on a narrow screen. Find in page still opens it. */
+    /* until-found keeps the box, so its margin, padding and border must go. */
     &[hidden="until-found"] { margin: 0; padding: 0; border: 0; }
     &[hidden]:not([hidden="until-found"]) { display: none; }
     &.flash { animation: note-flash 1.4s ease-out; }
@@ -318,7 +282,6 @@
   /* The print copy of the notes. */
   .endnotes { display: none; }
 
-  /* ---------- Table of contents ---------- */
   nav.toc {
     font-size: .9rem;
     .toc-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 0; margin: 0 0 .4rem; padding: 0; }
@@ -329,11 +292,8 @@
     a[aria-current] { color: var(--link); border-left-color: var(--link); font-weight: 600; }
   }
 
-  /* ---------- Narrow screen with a mouse: contents at the top ---------- */
-  /* The popover attribute hides the contents until the Contents button opens
-     them. That button is in the bar at the bottom, which shows only on touch
-     screens. Elsewhere, these rules show the contents as a box at the top of
-     the page. */
+  /* The popover attribute hides the contents. Outside touch screens, these
+     rules show them as a box. */
   .dock { display: none; }
   nav.toc[popover] {
     display: block; position: static; inset: auto; width: auto; max-width: none; max-height: none; overflow: visible;
@@ -341,7 +301,6 @@
     border: 1px solid var(--rule); border-radius: 0; box-shadow: none;
   }
 
-  /* ---------- Phones and tablets: page tools at the bottom, sheets ---------- */
   @media (width < 72rem) and (pointer: coarse) {
     body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
     /* The browser scrolls a focused element above the bar, never under it
@@ -357,7 +316,6 @@
         font: inherit; font-size: .9rem; color: var(--link); background: none; border: 0; text-decoration: none; cursor: pointer;
       }
     }
-    /* The table of contents opens as a sheet from the Contents button. */
     nav.toc[popover] {
       position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-height: 75dvh; overflow: auto;
       padding: 1rem var(--edge-right) calc(1rem + env(safe-area-inset-bottom)) var(--edge-left);
@@ -368,7 +326,6 @@
       &::backdrop { background: rgb(0 0 0 / .35); }
     }
   }
-  /* A popup on a touch screen: a sheet with large controls. */
   pop-window.sheet {
     position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80dvh;
     border-width: 1px 0 0; border-radius: 12px 12px 0 0; font-size: .95rem;
@@ -377,8 +334,7 @@
     .popbar { cursor: default; padding: .3rem .4rem .3rem .8rem; }
     .popbar button, .popopen { min-block-size: 44px; min-inline-size: 44px; display: inline-grid; place-items: center; font-size: .95rem; }
   }
-  /* Larger targets for fingers. A note number is a small superscript, so an
-     invisible area around it takes the tap. */
+  /* An invisible area around each small note number takes the tap. */
   @media (pointer: coarse) {
     .popbar button { min-block-size: 44px; min-inline-size: 44px; }
     header.site nav a, section-tabs nav a { padding-block: .45rem; }
@@ -386,8 +342,7 @@
     .note-ref::after, .note-num::after { content: ""; position: absolute; inset: -.8em -.7em; }
   }
 
-  /* With the single-key shortcuts on, a popup link with keyboard focus shows
-     its key. Screen readers skip this text (the "/ ''" part). */
+  /* Screen readers skip this label (the / "" part of content). */
   :root[data-shortcuts="on"] pop-link:has(> a:focus-visible) {
     position: relative;
     &::after {
@@ -397,10 +352,8 @@
     }
   }
 
-  /* ---------- Windows contrast themes (forced colors) ---------- */
-  /* These themes remove shadows and background colors. Popups, sheets and
-     dialogs keep a strong border, and each current item keeps a mark that is
-     not only a color. */
+  /* These themes remove shadows and backgrounds, so popups keep a border and
+     each current item keeps a mark that is not only a color. */
   @media (forced-colors: active) {
     :focus-visible { outline-color: Highlight; }
     pop-window, dialog, nav.toc[popover]:popover-open { border: 2px solid CanvasText; }
@@ -412,7 +365,6 @@
     :root[data-shortcuts="on"] pop-link:has(> a:focus-visible)::after { border: 1px solid CanvasText; }
   }
 
-  /* ---------- Keyboard shortcuts ---------- */
   dialog.shortcuts {
     max-width: min(28rem, 92vw); padding: 1rem 1.2rem; color: var(--fg); background: var(--pop-bg); border: 1px solid var(--rule);
     h2 { margin-top: 0; border: 0; }
@@ -424,7 +376,6 @@
     &::backdrop { background: rgb(0 0 0 / .4); }
   }
 
-  /* ---------- Wide: contents, text and margin ---------- */
   @media (width >= 72rem) {
     header.site, .frame, footer.site { max-width: var(--frame); }
     .frame {
@@ -432,15 +383,13 @@
       grid-template-columns: var(--toc-width) minmax(0, var(--measure)) var(--margin-width);
     }
     .frame > main { grid-column: 2; grid-row: 1; position: relative; }
-    /* The contents column stays in view. */
     nav.toc[popover] {
       display: block; grid-column: 1; grid-row: 1;
       position: sticky; inset: auto; top: 1rem; width: auto; max-height: calc(100dvh - 2rem);
       margin: 1.6rem 0 0; padding: 0; color: inherit; background: none; border: 0; border-radius: 0; box-shadow: none;
       a { padding-block: .2rem; }
     }
-    /* Each note in the margin, at the height of its reference. The script
-       moves a note down when it would cover the one before it. */
+    /* side-note.ts moves a note down when it would cover the one before it. */
     .frame > main side-note {
       position: absolute; inset-inline-start: calc(100% + var(--gap)); inline-size: var(--margin-width);
       margin: 0; padding: 0 0 0 .6rem;
@@ -460,9 +409,7 @@
     header.site, .frame, footer.site { max-width: none; }
     .frame { display: block; }
     a { color: inherit; }
-    /* External links print their address. */
     main a[href^="http"]::after { content: " <" attr(href) ">"; font-size: .85em; overflow-wrap: anywhere; }
-    /* The notes print as a list at the end, under the same numbers. */
     side-note { display: none !important; }
     .endnotes { display: block; margin-top: 2rem; font-size: 9.5pt; }
     h1, h2, h3 { break-after: avoid; }

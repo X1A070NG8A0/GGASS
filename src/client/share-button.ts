@@ -28,10 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <share-button> shares the page through the share sheet of the device (the
-// Web Share API). Where the browser has no share sheet, it shows nothing.
-// Without JavaScript, the stylesheet hides it.
-
 class ShareButton extends HTMLElement {
   connectedCallback(): void {
     if (this.firstChild || typeof navigator.share !== "function") return;

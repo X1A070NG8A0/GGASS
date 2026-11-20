@@ -28,12 +28,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Loads the optional packages: esbuild, sharp and subset-font.
-//
-// A site installs only the packages for the steps that it uses. GGASS looks
-// for each package from the site folder first, then from its own folder. A
-// linked GGASS (a file: dependency) does not see the packages of the site
-// from its own folder, so the order matters.
+// The site folder comes first, because a linked GGASS (a file: dependency)
+// cannot see the packages of the site from its own folder.
 import { createRequire } from "node:module";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -59,7 +55,6 @@ async function load(name: string, root: string): Promise<unknown> {
   }
 }
 
-// The package, or undefined if it is not installed.
 export function optional<T>(name: string, root: string): Promise<T | undefined> {
   const key = `${root}\0${name}`;
   let mod = loaded.get(key);
@@ -86,7 +81,6 @@ export async function required<T>(name: string, root: string, purpose: string): 
   return mod;
 }
 
-// The messages of a failed esbuild call, as "file:line:column: text".
 export function esbuildErrors(e: unknown, root: string): string[] {
   const list = (e as Partial<Esbuild.BuildFailure> | undefined)?.errors;
   if (!list?.length) return [String(e)];

@@ -28,13 +28,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Page transforms: heading IDs and the table of contents, side notes, popup
-// links, and the list of custom elements on a page.
 import type { Page } from "./content.ts";
 import { attrs, slug, tag, target, textOf } from "./html.ts";
 
-// Gives each h2 and h3 an ID (from its text, if it has none) and fills
-// page.toc. A heading with data-notoc gets an ID but no entry.
 export function headings(page: Page): void {
   const ids = new Set([...page.body.matchAll(/\sid=(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g)].map((m) => m[1] ?? m[2] ?? m[3]));
   page.toc = [];
@@ -54,17 +50,12 @@ export function headings(page: Page): void {
   });
 }
 
-// Elements that close with their parent and so hold no side notes.
 const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
 // Elements whose end gets the side notes that they hold.
 const BLOCKS = new Set(["p", "li", "dd", "dt", "td", "th", "figcaption", "caption", "blockquote", "summary", "h1", "h2", "h3", "h4", "h5", "h6"]);
 
-// <side-note>Text.</side-note> in a paragraph becomes a numbered reference
-// in the text, and the note itself at the end of the paragraph. The
-// stylesheet puts the note in the margin on a wide screen, beside its
-// reference (CSS anchor positioning). On a narrow screen it follows the
-// paragraph, and a script folds it until the reader taps the number. For
-// print, the notes also go in a list at the end of the page.
+// Each note moves to the end of its paragraph, so that on a narrow screen it
+// follows the sentence instead of splitting it.
 export function sideNotes(page: Page, errors: string[]): void {
   if (!page.body.includes("<side-note")) return;
   const notes: string[] = [];
@@ -104,10 +95,7 @@ export function sideNotes(page: Page, errors: string[]): void {
   page.body = `${out}\n<section class="endnotes" aria-labelledby="endnotes-title">\n<h2 id="endnotes-title" data-notoc>Notes</h2>\n<ol>\n${list}\n</ol>\n</section>`;
 }
 
-// <a href="/x.html" data-pop> (a bare data-pop) opens /x.html in a popup
-// window on hover, or in a sheet on a touch screen. The build wraps the link
-// in <pop-link> and points data-pop to /frag/x.html: the page body without
-// the layout. `targets` collects the pages that need a /frag/ copy.
+// Adds each popup target to `targets`: those pages get a /frag/ copy.
 export function popups(page: Page, pages: Map<string, Page>, errors: string[], targets: Set<string>): void {
   page.body = page.body.replace(/<a\b([^>]*)\sdata-pop(?=[\s>])([^>]*)>([\s\S]*?)<\/a>/g, (all, before: string, after: string, label: string) => {
     const href = `${before}${after}`.match(/\shref="([^"]*)"/)?.[1] ?? "";
@@ -121,5 +109,4 @@ export function popups(page: Page, pages: Map<string, Page>, errors: string[], t
   });
 }
 
-// The custom element names in some HTML.
 export const customTags = (html: string): Set<string> => new Set([...html.matchAll(/<([a-z][a-z0-9]*-[a-z0-9-]*)[\s/>]/g)].map((m) => m[1]));

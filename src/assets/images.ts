@@ -28,15 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Image processing with sharp: convert, resize, crop, rotate, adjust colors,
-// apply filters, overlay text and images, and read metadata.
-//
-// Use it two ways:
-// - In code: processImage(), imageMetadata() and parseImageSpec().
-// - In a page: <img src="/photo.jpg" data-image="crop=4:3 grayscale">. The
-//   build applies the operations, writes the result, and gives every raster
-//   image its width and height. With sharp installed, it also writes AVIF and
-//   WebP copies at several widths, with srcset and sizes.
 import { readFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import type SharpType from "sharp";
@@ -75,7 +66,6 @@ export type ImageOps = {
   lightness?: number;
   contrast?: number;
   gamma?: number;
-  // Filters.
   grayscale?: boolean;
   sepia?: boolean;
   negate?: boolean;
@@ -116,7 +106,6 @@ const RASTER = /\.(jpe?g|png|webp|avif|gif|tiff?)$/i;
 const shown = (m: { width?: number; height?: number; orientation?: number }) =>
   (m.orientation ?? 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
 
-// The format of a raster file from its name: "photo.JPG" gives "jpeg".
 const formatOf = (path: string): string => {
   const ext = (RASTER.exec(path)?.[1] ?? "png").toLowerCase();
   return ext === "jpg" ? "jpeg" : ext === "tif" ? "tiff" : ext;
@@ -127,8 +116,6 @@ const GRAVITIES = ["center", "north", "northeast", "east", "southeast", "south",
 const POSITIONS = [...GRAVITIES, "top", "right", "bottom", "left", "attention", "entropy"];
 
 const sharpFor = (root: string) => required<Sharp>("sharp", root, "Image processing");
-
-// ---------- the spec language ----------
 
 // Parses the operations in a data-image attribute: key=value pairs and
 // flags, separated by spaces. Values with spaces take quotes.
@@ -234,14 +221,12 @@ export function parseImageSpec(spec: string): ImageOps {
   return ops;
 }
 
-// ---------- processing ----------
-
 // sharp names positions by sides: "north" is "top".
 const SIDES: Record<string, string> = { north: "top", south: "bottom", east: "right", west: "left", northeast: "right top", northwest: "left top", southeast: "right bottom", southwest: "left bottom" };
 const toPosition = (p: Position | undefined): string => (p ? (SIDES[p] ?? p) : "centre");
 
-// A line of text as an SVG image as wide as the photo, placed on its own
-// row: the horizontal part of the gravity becomes the text alignment.
+// The text is an SVG row as wide as the photo. The east or west part of the
+// gravity sets the alignment.
 function textImage(o: Extract<ImageOverlay, { text: string }>, width: number): Buffer {
   const size = o.size ?? Math.max(12, Math.round(width / 30));
   const pad = Math.round(size * 0.6);
@@ -280,8 +265,8 @@ export async function processImage(input: string | Uint8Array, ops: ImageOps, op
       width = w;
       height = h;
     }
-    // sharp allows one resize in each pass, so the crop gets its own pass.
-    // Raw pixels between the passes lose nothing.
+    // sharp allows one resize per pass, so the crop gets its own pass. Raw
+    // pixels lose nothing.
     const cut = await img.raw().toBuffer({ resolveWithObject: true });
     img = sharp(cut.data, { raw: { width: cut.info.width, height: cut.info.height, channels: cut.info.channels } });
   }
@@ -354,8 +339,6 @@ export async function imageMetadata(input: string | Uint8Array, options: { root?
   };
 }
 
-// ---------- images in pages ----------
-
 const MIME: Record<string, string> = { avif: "image/avif", webp: "image/webp", jpeg: "image/jpeg", png: "image/png", gif: "image/gif" };
 
 // A small pool, so that many large images do not all decode at once.
@@ -374,8 +357,6 @@ function pool(size: number) {
   };
 }
 
-// Gives each <img> in each page its size, applies data-image operations,
-// and writes responsive copies when sharp is installed.
 export async function pageImages(ctx: BuildContext): Promise<void> {
   const { config, files, errors } = ctx;
   const settings = config.images;
@@ -399,7 +380,6 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
   for (const page of ctx.pages.values()) {
     const found = [...page.body.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
     if (!found.length) continue;
-    // One <img> tag in, its new HTML out.
     const one = async (img: string, isFirst: boolean): Promise<string> => {
       const a = attrs(img);
       const src = a.get("src") ?? "";
@@ -470,8 +450,6 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
         writeBase();
         return tag("img", a);
       }
-      // Responsive copies: each width below the image width, and the image
-      // width itself up to the largest configured width.
       const source = base?.data ?? bytes;
       const fullWidth = size.width;
       const max = Math.max(...settings.widths);
@@ -479,8 +457,6 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
       // The <img> keeps a JPEG or PNG copy for browsers without AVIF or WebP.
       const fallback = (base?.format ?? formatOf(src)) === "png" ? "png" : "jpeg";
       const extra = [...new Set(settings.formats)].filter((f) => f !== fallback);
-      // The URL of each width in one format. All copies are made at once,
-      // and the pool limits how many run together.
       const copies = (format: string) =>
         Promise.all(
           widths.map(async (w) => {
@@ -501,8 +477,7 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
       const sources = others.map((urls, i) => `<source type="${MIME[extra[i]]}" srcset="${esc(srcset(urls))}" sizes="${esc(sizes)}">`).join("");
       return `<picture>${sources}${tag("img", a)}</picture>`;
     };
-    // A failure in one image is an error for that image, not a crash of the
-    // build.
+    // One failed image is an error for that image, not a crash of the build.
     const results = await Promise.all(
       found.map((img, i) =>
         one(img, i === 0).catch((e: unknown) => {

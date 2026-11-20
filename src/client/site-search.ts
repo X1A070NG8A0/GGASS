@@ -28,13 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <site-search> holds a search input and a results list. It loads
-// /search-index.json one time and shows the entries that contain each word.
-// A ?q= parameter in the address fills the input. Without a results list
-// (the search form on the home page), it only shows the form.
-// The stylesheet hides this element until it is defined, so without
-// JavaScript no search box shows that cannot work.
-
 type Entry = { k: string; t: string; x: string; u: string };
 
 class SiteSearch extends HTMLElement {
@@ -47,7 +40,6 @@ class SiteSearch extends HTMLElement {
     // The element was hidden at load, so the browser did not apply autofocus.
     if (input?.autofocus) input.focus();
     if (!input || !this.querySelector("ol")) return;
-    // Screen readers hear the number of results (a polite live region).
     this.status = document.createElement("p");
     this.status.className = "vh";
     this.status.setAttribute("role", "status");

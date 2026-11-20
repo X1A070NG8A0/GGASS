@@ -28,22 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Gwern-style popup windows. If you point to a <pop-link>, a <pop-window>
-// opens with the content of that address. Links in a window open child
-// windows. A window closes when the pointer leaves it, its link and its
-// children, unless it is pinned. A pinned window stays in place, and you can
-// drag it by its title bar. The "tile" button puts the pinned windows side by
-// side across the screen.
-//
-// On a touch screen, a tap opens the page in a sheet from the bottom of the
-// screen instead. A tap outside the sheet, Escape or the close button closes
-// it. The sheet links to the full page.
-//
-// Each window is a popover, so it is in the top layer above the page.
-// Anchor positioning puts a window below its link, or above if there is no
-// space. Browsers without anchor positioning or invoker commands get a
-// fallback.
-
 export const SHOW_DELAY = 220;
 const SWEEP_DELAY = 350;
 const NOT_FOUND = "<p class='meta'>Not found.</p>";
@@ -71,7 +55,6 @@ export class PopWindow extends HTMLElement {
   parentWin?: PopWindow;
   pinned = false;
   sheet = false;
-  // Opened from the keyboard: the focus moves into the window.
   takeFocus = false;
   abort?: AbortController;
 
@@ -99,7 +82,6 @@ export class PopWindow extends HTMLElement {
     this.id = `pw-${++serial}`;
     // A sheet is an auto popover: a tap outside it or Escape closes it.
     this.popover = this.sheet ? "auto" : "manual";
-    // A non-modal dialog, named by its title bar.
     this.setAttribute("role", "dialog");
     this.setAttribute("aria-labelledby", `${this.id}-title`);
 
@@ -138,8 +120,7 @@ export class PopWindow extends HTMLElement {
     }
     this.showPopover();
     topWin = this;
-    // The reader of a sheet, or of a window opened from the keyboard, starts
-    // inside it. Tab then reaches its links, and Escape goes back.
+    // Focus moves in so that Tab reaches the links of the window.
     if (this.takeFocus) this.focus({ preventScroll: true });
     void this.load(body);
   }
@@ -202,8 +183,6 @@ export class PopWindow extends HTMLElement {
     }
   }
 
-  // Pins this window, then puts all pinned windows side by side, each as
-  // tall as the screen.
   tile(): void {
     this.setPinned(true);
     const list = windows().filter((w) => w.pinned && !w.sheet);
@@ -224,12 +203,10 @@ export class PopWindow extends HTMLElement {
   async load(body: HTMLElement): Promise<void> {
     const url = this.link?.dataset.pop;
     if (!url) return;
-    // Custom elements in the content (pop-link, check-list) start themselves.
     body.innerHTML = await fragment(url);
     if (!ANCHORS && !this.pinned && !this.sheet) this.place();
   }
 
-  // Below the link, or above it if there is no space below.
   place(): void {
     const link = this.link;
     if (!link) return;
@@ -240,8 +217,7 @@ export class PopWindow extends HTMLElement {
       this.classList.add("anchored");
       return;
     }
-    // Fallback: below if the window fits, else the side with more room. The
-    // window shrinks to that room, so it never covers its link.
+    // The window shrinks to the room it has, so it never covers its link.
     const r = link.getBoundingClientRect();
     const w = this.offsetWidth;
     this.style.maxHeight = "";
@@ -254,7 +230,6 @@ export class PopWindow extends HTMLElement {
     this.style.top = `${down ? r.bottom + 6 : r.top - 6 - Math.min(h, room)}px`;
   }
 
-  // Fix the window at its current place and size in the viewport.
   unanchor(): void {
     if (!this.classList.contains("anchored")) return;
     const r = this.getBoundingClientRect();
@@ -300,8 +275,7 @@ export class PopWindow extends HTMLElement {
     for (const w of windows()) if (w.parentWin === this) w.close();
     this.link?.style.removeProperty("anchor-name");
     if (topWin === this) topWin = undefined;
-    // Return the focus to the link that opened the window. After a tap
-    // outside a sheet, the focus is already on the page body.
+    // After a tap outside a sheet, the focus is already on the page body.
     const active = document.activeElement;
     if (this.contains(active) || (this.sheet && active === document.body)) this.link?.focus({ preventScroll: true });
     this.remove();
@@ -309,8 +283,6 @@ export class PopWindow extends HTMLElement {
 }
 
 customElements.define("pop-window", PopWindow);
-
-// ---------- Closing windows that the pointer left ----------
 
 let sweepTimer: number | undefined;
 
@@ -328,7 +300,6 @@ export function scheduleSweep(): void {
   sweepTimer = setTimeout(sweep, SWEEP_DELAY);
 }
 
-// Escape closes the windows that are not pinned, wherever the focus is.
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") for (const w of windows().reverse()) if (!w.pinned) w.close();
 });

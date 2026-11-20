@@ -28,13 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <pop-link> holds a link with data-pop. If you point to it with a mouse for
-// a short time, a <pop-window> opens with the content of data-pop. On a
-// touch screen (no hover), a tap opens the content in a sheet, and the sheet
-// links to the full page. A "preview" event (the p shortcut) opens a window
-// for keyboard users and moves the focus into it. Escape closes it and
-// returns the focus to the link. A modified click follows the link as usual.
-// Without JavaScript, it is a link.
+// A "preview" event (from the p shortcut) opens a window and focuses it.
 
 import { PopWindow, SHOW_DELAY, scheduleSweep } from "./pop-window.ts";
 

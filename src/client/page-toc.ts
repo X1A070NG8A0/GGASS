@@ -28,11 +28,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// <page-toc> holds the list of the table of contents. On a wide screen the
-// list stays in view beside the text, and this script marks the section that
-// the reader is in. On a narrow screen the list opens as a sheet from the
-// Contents button, and a tap on an entry closes the sheet.
-
 class PageToc extends HTMLElement {
   links: HTMLAnchorElement[] = [];
   targets: HTMLElement[] = [];
@@ -61,8 +56,6 @@ class PageToc extends HTMLElement {
     this.frame = requestAnimationFrame(() => this.mark());
   }
 
-  // The current section: the last heading above a line near the top of the
-  // screen.
   mark(): void {
     const line = Math.min(innerHeight / 4, 160);
     let current = -1;

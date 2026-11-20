@@ -28,30 +28,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// Content hashes for asset names, Subresource Integrity, and the cache.
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-// The Subresource Integrity value of a file: the browser refuses the file if
-// its content does not match.
+// Returns "sha384-" and the base64 hash. Browsers refuse a file that differs.
 export const integrity = (data: string | Uint8Array): string => `sha384-${createHash("sha384").update(data).digest("base64")}`;
 
-// A short content hash for a file name.
 export const shortHash = (...parts: (string | Uint8Array)[]): string => {
   const h = createHash("sha256");
   for (const p of parts) h.update(p);
   return h.digest("hex").slice(0, 10);
 };
 
-// "assets/style.css" becomes "assets/style-0123456789.css".
 export const fingerprinted = (path: string, data: string | Uint8Array, on: boolean): string =>
   on ? path.replace(/(\.[^./]+)$/, `-${shortHash(data)}$1`) : path;
 
-// A file cache in the cache folder. If the file for `key` exists, it is the
-// result. If not, `make` runs and its result is kept. Two calls for the same
-// file at the same time share one job. A finished job leaves the map, so the
-// map holds no file data and keeps no failure.
+// Concurrent calls for one file share a job. Finished jobs leave the map, so it
+// holds no data and no failures.
 const running = new Map<string, Promise<Buffer>>();
 export function cached(dir: string, key: string, make: () => Promise<Uint8Array>): Promise<Buffer> {
   const path = join(dir, key);
