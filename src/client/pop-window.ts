@@ -108,7 +108,7 @@ export class PopWindow extends HTMLElement {
     const title = document.createElement("span");
     title.className = "poptitle";
     title.id = `${this.id}-title`;
-    title.textContent = link.textContent?.trim() ?? "";
+    title.textContent = link.textContent.trim();
     const open = document.createElement("a");
     open.className = "popopen";
     open.href = link.href;

@@ -38,13 +38,8 @@ class ShareButton extends HTMLElement {
     const b = document.createElement("button");
     b.type = "button";
     b.textContent = "Share";
-    b.addEventListener("click", async () => {
-      try {
-        await navigator.share({ title: document.title, url: location.href });
-      } catch {
-        // The reader closed the share sheet, or the browser refused.
-      }
-    });
+    // A closed share sheet or a refusal rejects the promise. Both are normal.
+    b.addEventListener("click", () => void navigator.share({ title: document.title, url: location.href }).catch(() => undefined));
     this.append(b);
   }
 }

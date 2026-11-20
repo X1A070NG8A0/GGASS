@@ -83,7 +83,8 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
       return;
     }
     res.writeHead(200, headers);
-    createReadStream(file).pipe(res);
+    // A file that goes away during the read ends this response, not the server.
+    createReadStream(file).on("error", () => res.destroy()).pipe(res);
   }).listen(port, host, () => {
     if (!options.quiet) console.log(`Site on http://${host}:${port}`);
   });

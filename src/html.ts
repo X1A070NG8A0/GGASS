@@ -32,8 +32,9 @@
 import type { ResolvedConfig } from "./config.ts";
 import type { TocEntry } from "./content.ts";
 
-export const esc = (s: unknown): string =>
-  String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+
+export const esc = (s: unknown): string => String(s ?? "").replace(/[&<>"']/g, (c) => ENTITIES[c]);
 
 // The page that a root-relative link opens: no query or fragment, and a
 // folder link ("/guide/") opens its index.html.
@@ -42,16 +43,17 @@ export const target = (href: string): string => {
   return path.endsWith("/") ? `${path}index.html` : path;
 };
 
-// The plain text of an HTML fragment.
+// The plain text of an HTML fragment. &amp; is decoded last, so that the
+// text "&amp;lt;" stays "&lt;".
 export const textOf = (html: string): string =>
   html
     .replace(/<(script|style)\b[\s\S]*?<\/\1>|<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
     .replace(/\s+/g, " ")
     .trim();
 
@@ -75,13 +77,13 @@ export function attrs(tag: string): Map<string, string> {
 
 // A start tag from a name and attributes. An empty value writes a bare
 // attribute, such as `hidden`.
-export function tag(name: string, list: Map<string, string> | [string, string][]): string {
+export function tag(name: string, list: Map<string, string>): string {
   const parts = [...list].map(([k, v]) => (v === "" ? ` ${k}` : ` ${k}="${esc(v)}"`));
   return `<${name}${parts.join("")}>`;
 }
 
 // The table of contents: h2 entries, with their h3 entries in a nested list.
-export function tocList(entries: TocEntry[]): string {
+function tocList(entries: TocEntry[]): string {
   // An h3 goes under the h2 before it. An h3 before the first h2 is a top item.
   const items: { entry: TocEntry; children: TocEntry[] }[] = [];
   for (const entry of entries) {

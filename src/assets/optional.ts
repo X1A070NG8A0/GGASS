@@ -35,9 +35,11 @@
 // linked GGASS (a file: dependency) does not see the packages of the site
 // from its own folder, so the order matters.
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
+import type * as Esbuild from "esbuild";
 import type { Engine } from "../config.ts";
+import { slashes } from "../steps.ts";
 
 const loaded = new Map<string, Promise<unknown>>();
 
@@ -82,4 +84,11 @@ export async function required<T>(name: string, root: string, purpose: string): 
   const mod = await optional<T>(name, root);
   if (!mod) throw new Error(`${purpose} needs ${name}. Install it in the site: npm install --save-dev ${name}`);
   return mod;
+}
+
+// The messages of a failed esbuild call, as "file:line:column: text".
+export function esbuildErrors(e: unknown, root: string): string[] {
+  const list = (e as Partial<Esbuild.BuildFailure> | undefined)?.errors;
+  if (!list?.length) return [String(e)];
+  return list.map((m) => (m.location ? `${slashes(relative(root, m.location.file))}:${m.location.line}:${m.location.column + 1}: ${m.text}` : m.text));
 }

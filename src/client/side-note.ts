@@ -43,6 +43,7 @@
 // still finds the text of a folded note (hidden="until-found") and opens it.
 
 const ANCHORS = CSS.supports("anchor-name: --a");
+const UNTIL_FOUND = "onbeforematch" in HTMLElement.prototype;
 const notes = new Set<SideNote>();
 let frame = 0;
 
@@ -74,7 +75,7 @@ const schedule = () => {
   frame = requestAnimationFrame(placeAll);
 };
 new ResizeObserver(schedule).observe(document.documentElement);
-void document.fonts?.ready.then(schedule);
+void document.fonts.ready.then(schedule);
 
 class SideNote extends HTMLElement {
   ref?: HTMLAnchorElement;
@@ -140,7 +141,7 @@ class SideNote extends HTMLElement {
       return;
     }
     if (this.open) this.removeAttribute("hidden");
-    else this.setAttribute("hidden", "until-found");
+    else this.setAttribute("hidden", UNTIL_FOUND ? "until-found" : "");
     this.ref?.setAttribute("aria-expanded", String(this.open));
   }
 }

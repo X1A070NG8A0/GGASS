@@ -103,7 +103,7 @@ class KeyShortcuts extends HTMLElement {
     if (!(e instanceof KeyboardEvent) || !on || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented || e.repeat) return;
     const t = e.target;
     if (t instanceof HTMLElement && (t.isContentEditable || t.closest("input, textarea, select"))) return;
-    const run: Record<string, () => void> = {
+    const run: Partial<Record<string, () => void>> = {
       "?": () => this.help(),
       "/": () => {
         const input = document.querySelector<HTMLInputElement>("site-search input");

@@ -45,9 +45,10 @@
 // /guide/start.html. Other files in the content folder (images, for example)
 // are copied to the same path.
 import { readFileSync, readdirSync } from "node:fs";
-import { join, relative, sep } from "node:path";
+import { join, relative } from "node:path";
 import YAML from "yaml";
 import type { ResolvedConfig } from "./config.ts";
+import { slashes } from "./steps.ts";
 
 export type TocEntry = { level: number; id: string; text: string };
 
@@ -64,6 +65,11 @@ export type Page = {
 
 export type Content = { pages: Map<string, Page>; files: string[]; errors: string[] };
 
+// A YAML header value as text. YAML reads `title: 2026` as a number, so a
+// number or a true/false becomes text too. A list or a map gives "".
+const plain = (value: unknown): string =>
+  typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : "";
+
 export function loadContent(config: ResolvedConfig): Content {
   const errors: string[] = [];
   if (!config.name) errors.push("configuration: no site name");
@@ -79,9 +85,9 @@ export function loadContent(config: ResolvedConfig): Content {
     errors.push(`${config.content}: the content folder does not exist`);
     return { pages, files, errors };
   }
-  const base = relative(config.root, config.content).split(sep).join("/");
+  const base = slashes(relative(config.root, config.content));
   for (const rel of rels) {
-    const url = "/" + rel.split(sep).join("/");
+    const url = "/" + slashes(rel);
     if (!rel.endsWith(".html")) {
       files.push(url);
       continue;
@@ -92,15 +98,16 @@ export function loadContent(config: ResolvedConfig): Content {
       errors.push(`${file}: no page header (YAML between "<!--" and "-->" lines at the start)`);
       continue;
     }
-    let head: { title?: string; kind?: string };
+    let head: { title?: unknown; kind?: unknown };
     try {
-      head = YAML.parse(m[1]) ?? {};
+      head = (YAML.parse(m[1]) as typeof head | null) ?? {};
     } catch (e) {
       errors.push(`${file}: YAML header: ${(e as Error).message.split("\n")[0]}`);
       continue;
     }
-    if (!head.title) errors.push(`${file}: no title`);
-    pages.set(url, { url, title: head.title ?? url, kind: head.kind ?? "Page", body: m[2].trim(), file, toc: [] });
+    const title = plain(head.title);
+    if (!title) errors.push(`${file}: no title (it must be text)`);
+    pages.set(url, { url, title: title || url, kind: plain(head.kind) || "Page", body: m[2].trim(), file, toc: [] });
   }
   return { pages, files, errors };
 }

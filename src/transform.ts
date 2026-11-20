@@ -36,7 +36,7 @@ import { attrs, slug, tag, target, textOf } from "./html.ts";
 // Gives each h2 and h3 an ID (from its text, if it has none) and fills
 // page.toc. A heading with data-notoc gets an ID but no entry.
 export function headings(page: Page): void {
-  const ids = new Set([...page.body.matchAll(/\sid="([^"]*)"/g)].map((m) => m[1]));
+  const ids = new Set([...page.body.matchAll(/\sid=(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g)].map((m) => m[1] ?? m[2] ?? m[3]));
   page.toc = [];
   page.body = page.body.replace(/<h([23])\b([^>]*)>([\s\S]*?)<\/h\1>/g, (all, level: string, rest: string, inner: string) => {
     const a = attrs(`<h${level}${rest}>`);

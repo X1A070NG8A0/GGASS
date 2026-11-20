@@ -36,13 +36,13 @@
 // minifies, hashes and gives the integrity value, but writes no source map
 // and does not lower syntax.
 import { readFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import type * as Esbuild from "esbuild";
-import type { BuildContext, Asset } from "../steps.ts";
+import { slashes, type Asset, type BuildContext } from "../steps.ts";
 import { fingerprinted, integrity } from "./hash.ts";
-import { engine } from "./optional.ts";
+import { engine, esbuildErrors } from "./optional.ts";
 
-export const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
+const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
 
 // Minifies CSS with care: it removes comments (but keeps /*! ... */), and it
 // removes white space only where white space never has meaning. Strings stay
@@ -127,9 +127,6 @@ function bundle(file: string, ctx: BuildContext, seen: Set<string>): string {
   });
 }
 
-const esbuildMessage = (e: Esbuild.Message, root: string) =>
-  e.location ? `${relative(root, e.location.file).split(sep).join("/")}:${e.location.line}:${e.location.column + 1}: ${e.text}` : e.text;
-
 // Builds the site stylesheet: the GGASS stylesheet (unless css.base is
 // false), the site stylesheet, and `extra` (the @font-face rules).
 export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset | undefined> {
@@ -143,7 +140,7 @@ export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset 
     // Relative paths, so that the plugin below never sees an absolute path
     // that starts with "/" (on Linux and macOS).
     const relPath = (f: string) => {
-      const r = relative(config.root, f).split(sep).join("/");
+      const r = slashes(relative(config.root, f));
       return /^[a-z]:/i.test(r) || r.startsWith("../") ? r : `./${r}`;
     };
     const entry = files.map((f) => `@import ${JSON.stringify(relPath(f))};`).join("\n") + "\n" + extra;
@@ -168,13 +165,13 @@ export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset 
       });
       css = "";
       for (const f of result.outputFiles) {
-        const rel = relative(config.out, f.path).split(sep).join("/");
+        const rel = slashes(relative(config.out, f.path));
         if (rel === "assets/style.css") css = f.text;
         else if (rel === "assets/style.css.map") map = f.text;
         else ctx.emit(rel, f.contents);
       }
     } catch (e) {
-      for (const m of (e as Esbuild.BuildFailure).errors ?? [{ text: String(e) } as Esbuild.Message]) errors.push(`CSS: ${esbuildMessage(m, config.root)}`);
+      for (const m of esbuildErrors(e, config.root)) errors.push(`CSS: ${m}`);
       return undefined;
     }
   } else {

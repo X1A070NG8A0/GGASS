@@ -44,7 +44,7 @@ import { buildJs, buildServiceWorker, type Scripts } from "./assets/js.ts";
 import { resolveConfig, type SiteConfig } from "./config.ts";
 import { loadContent, type Page } from "./content.ts";
 import { layout, target, textOf } from "./html.ts";
-import { Timings, type Asset, type BuildContext } from "./steps.ts";
+import { formatMs, Timings, type Asset, type BuildContext } from "./steps.ts";
 import { customTags, headings, popups, sideNotes } from "./transform.ts";
 
 export type BuildOptions = {
@@ -63,8 +63,6 @@ export type BuildResult = {
   outputs: string[];
   timings: [string, number][];
 };
-
-const GENERATED = new Set(["/search.html", "/search-index.json", "/sw.js"]);
 
 const searchPage = `<h1>Search</h1>
 <site-search><label class="field" for="search-q">Search this site</label><input type="search" id="search-q" name="q" autofocus><ol class="results"></ol></site-search>
@@ -135,9 +133,11 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
   // Each root-relative link must open a page, a generated file, an asset or
   // a file from the content folder.
   await timings.run("links", () => {
+    const generated = new Set(["/search.html", "/search-index.json", ...(config.offline ? ["/sw.js"] : [])]);
+    const fileSet = new Set(files);
     const known = (href: string) => {
       const t = target(href);
-      return pages.has(t) || GENERATED.has(t) || files.includes(t) || outputs.has(t.slice(1)) || t.startsWith("/assets/");
+      return pages.has(t) || generated.has(t) || fileSet.has(t) || outputs.has(t.slice(1)) || t.startsWith("/assets/");
     };
     for (const n of config.nav) if (n.href.startsWith("/") && !known(n.href)) errors.push(`configuration: nav link "${n.href}" has no target`);
     for (const page of pages.values())
@@ -152,8 +152,9 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
 
   // ---------- assets ----------
   const texts = new Map([...pages.values()].map((p) => [p.url, pageText(p)]));
-  const siteText = [config.name, config.footer, ...config.nav.map((n) => n.label), ...[...pages.values()].map((p) => p.title), ...texts.values()].join(" ");
-  const fonts = await timings.run("fonts", () => buildFonts(ctx, textOf(siteText)));
+  // Only the footer is HTML. The other parts are text already.
+  const siteText = [config.name, textOf(config.footer), ...config.nav.map((n) => n.label), ...[...pages.values()].map((p) => p.title), ...texts.values()].join(" ");
+  const fonts = await timings.run("fonts", () => buildFonts(ctx, siteText));
   const css = await timings.run("css", () => buildCss(ctx, fonts.css));
   const js = await timings.run("js", () => buildJs(ctx));
   for (const step of config.steps) {
@@ -170,6 +171,7 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
       importMap(js),
     ].filter(Boolean);
     const loader = `<script type="module" src="${js.loader.url}" integrity="${js.loader.integrity}"></script>`;
+    const sums = new Map(js.files.map((f) => [f.url, f.integrity]));
     // modulepreload links for the modules of the elements on the page and
     // their static imports, so the browser fetches them all at once.
     const preloads = (html: string) => {
@@ -185,7 +187,6 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
         if (m) add(m.url);
       }
       seen.delete(js.loader.url);
-      const sums = new Map(js.files.map((f) => [f.url, f.integrity]));
       return [...seen].map((url) => `<link rel="modulepreload" href="${url}" integrity="${sums.get(url)}">`);
     };
     const render = (url: string, title: string, toc: Page["toc"], body: string) => {
@@ -193,8 +194,10 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
       const head = [...shared, ...preloads(html), loader, ...ctx.head].join("\n");
       return html.replace("<!--head-->", head);
     };
+    // A table of contents only on a page with enough headings.
+    const toc = (page: Page) => (config.toc && page.toc.length >= config.toc.min ? page.toc : []);
     for (const page of pages.values()) {
-      ctx.emit(page.url, render(page.url, page.title, page.toc, page.body));
+      ctx.emit(page.url, render(page.url, page.title, toc(page), page.body));
       if (popTargets.has(page.url)) ctx.emit(`frag${page.url}`, page.body);
     }
     ctx.emit("search.html", render("/search.html", "Search", [], searchPage));
@@ -223,7 +226,7 @@ export async function build(site: SiteConfig, options: BuildOptions = {}): Promi
     }
   });
   const total = performance.now() - started;
-  log(`Built ${pages.size} pages and ${outputs.size + files.length - pages.size} other files in ${total < 1000 ? `${total.toFixed(0)} ms` : `${(total / 1000).toFixed(2)} s`} (${timings.report()}).`);
+  log(`Built ${pages.size} pages and ${outputs.size + files.length - pages.size} other files in ${formatMs(total)} (${timings.report()}).`);
   return finish(true);
 }
 

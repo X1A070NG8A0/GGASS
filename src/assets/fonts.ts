@@ -36,7 +36,7 @@
 // WebAssembly). Without it, a font must already be WOFF2, and it is used
 // whole.
 import { readFileSync } from "node:fs";
-import { basename, extname, resolve } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import type { FontConfig } from "../config.ts";
 import type { BuildContext } from "../steps.ts";
 import { cached, fingerprinted, shortHash } from "./hash.ts";
@@ -56,37 +56,48 @@ export async function buildFonts(ctx: BuildContext, siteText: string): Promise<F
   if (!config.fonts.length) return fonts;
   const subsetFont = await optional<SubsetFont>("subset-font", config.root);
   const used = [...new Set(siteText + ALWAYS)].sort().join("");
-  let warned = false;
+  const cacheDir = join(config.cache, "fonts");
+  if (!subsetFont && config.fonts.some((f) => f.subset !== false && extname(f.src).toLowerCase() === ".woff2")) {
+    warnings.push("fonts: subset-font is not installed, so fonts are used whole. Install it in the site: npm install --save-dev subset-font");
+  }
 
-  for (const font of config.fonts) {
-    const path = resolve(config.root, font.src);
+  // The WOFF2 data of one font, or undefined after an error.
+  const fontData = async (font: FontConfig, path: string): Promise<Uint8Array | undefined> => {
     let input: Buffer;
     try {
       input = readFileSync(path);
     } catch {
       errors.push(`fonts: "${font.src}" not found`);
-      continue;
+      return undefined;
     }
-    const isWoff2 = extname(path).toLowerCase() === ".woff2";
-    let data: Uint8Array;
     if (font.subset !== false && subsetFont) {
       const chars = font.subset === undefined || font.subset === "auto" ? used : [...new Set(font.subset + " ")].join("");
-      data = await cached(`${config.cache}/fonts`, `${shortHash(input, chars)}.woff2`, () => subsetFont(input, chars, { targetFormat: "woff2" }));
-    } else if (isWoff2) {
-      if (font.subset !== false && !warned) {
-        warnings.push("fonts: subset-font is not installed, so fonts are used whole. Install it in the site: npm install --save-dev subset-font");
-        warned = true;
-      }
-      data = input;
-    } else {
-      // No subset: convert only. fontverter comes with subset-font.
-      const verter = await optional<FontVerter>("fontverter", config.root);
-      if (!verter) {
-        errors.push(`fonts: "${font.src}" is not WOFF2. Convert it, or install subset-font: npm install --save-dev subset-font`);
-        continue;
-      }
-      data = await cached(`${config.cache}/fonts`, `${shortHash(input, "whole")}.woff2`, () => verter.convert(input, "woff2"));
+      return cached(cacheDir, `${shortHash(input, chars)}.woff2`, () => subsetFont(input, chars, { targetFormat: "woff2" }));
     }
+    if (extname(path).toLowerCase() === ".woff2") return input;
+    // No subset: convert only. fontverter comes with subset-font.
+    const verter = await optional<FontVerter>("fontverter", config.root);
+    if (!verter) {
+      errors.push(`fonts: "${font.src}" is not WOFF2. Convert it, or install subset-font: npm install --save-dev subset-font`);
+      return undefined;
+    }
+    return cached(cacheDir, `${shortHash(input, "whole")}.woff2`, () => verter.convert(input, "woff2"));
+  };
+
+  // All fonts at once. The rules keep the order of the configuration.
+  const results = await Promise.all(
+    config.fonts.map(async (font) => {
+      const path = resolve(config.root, font.src);
+      try {
+        return { font, path, data: await fontData(font, path) };
+      } catch (e) {
+        errors.push(`fonts: "${font.src}": ${e instanceof Error ? e.message : String(e)}`);
+        return { font, path, data: undefined };
+      }
+    }),
+  );
+  for (const { font, path, data } of results) {
+    if (!data) continue;
     const rel = fingerprinted(`assets/fonts/${basename(path, extname(path))}.woff2`, data, config.fingerprint);
     ctx.emit(rel, data);
     fonts.css += fontFace(font, `/${rel}`);

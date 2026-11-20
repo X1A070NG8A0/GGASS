@@ -42,18 +42,18 @@
 // and gives the integrity values. It does not bundle, minify or read JSX.
 import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "node:module";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import type * as Esbuild from "esbuild";
-import type { Asset, BuildContext } from "../steps.ts";
+import { slashes, type Asset, type BuildContext } from "../steps.ts";
 import { fingerprinted, integrity, shortHash } from "./hash.ts";
-import { engine } from "./optional.ts";
+import { engine, esbuildErrors } from "./optional.ts";
 
-export const CLIENT = join(import.meta.dirname, "..", "client");
+const CLIENT = join(import.meta.dirname, "..", "client");
 const LOADER = join(CLIENT, "loader.ts");
 const WORKER = join(CLIENT, "worker", "sw.ts");
 
 // The elements of GGASS, each with the module in src/client/ of the same name.
-export const BUILTIN_COMPONENTS = [
+const BUILTIN_COMPONENTS = [
   "check-list", "list-filter", "site-search", "pop-link", "section-tabs", "step-sequence",
   "photo-zoom", "side-note", "page-toc", "key-shortcuts", "share-button",
 ];
@@ -74,19 +74,16 @@ export type Scripts = {
 // purpose, so this hides that one warning.
 function strip(source: string): string {
   const emit = process.emitWarning;
-  process.emitWarning = ((warning: string | Error, ...rest: unknown[]) => {
-    if (String(typeof warning === "string" ? warning : warning.message).includes("stripTypeScriptTypes")) return;
-    return (emit as (...args: unknown[]) => void).call(process, warning, ...rest);
-  }) as typeof process.emitWarning;
+  process.emitWarning = (warning: string | Error, ...rest: unknown[]) => {
+    if ((typeof warning === "string" ? warning : warning.message).includes("stripTypeScriptTypes")) return;
+    Reflect.apply(emit, process, [warning, ...rest]);
+  };
   try {
     return stripTypeScriptTypes(source, { mode: "strip" });
   } finally {
     process.emitWarning = emit;
   }
 }
-
-const esbuildMessage = (e: Esbuild.Message, root: string) =>
-  e.location ? `${relative(root, e.location.file).split(sep).join("/")}:${e.location.line}:${e.location.column + 1}: ${e.text}` : e.text;
 
 export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
   const { config, errors } = ctx;
@@ -127,24 +124,21 @@ export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
         logLevel: "silent",
       });
     } catch (e) {
-      for (const m of (e as Esbuild.BuildFailure).errors ?? [{ text: String(e) } as Esbuild.Message]) errors.push(`JavaScript: ${esbuildMessage(m, config.root)}`);
+      for (const m of esbuildErrors(e, config.root)) errors.push(`JavaScript: ${m}`);
       return undefined;
     }
     const byEntry = new Map(entries.map((e) => [resolve(e.in), e.out]));
-    const urlOf = (metaPath: string) => "/" + relative(config.out, resolve(config.root, metaPath)).split(sep).join("/");
-    const sums = new Map<string, string>();
+    // The metafile names files relative to the site root.
+    const urlOf = (metaPath: string) => "/" + slashes(relative(config.out, resolve(config.root, metaPath)));
     for (const f of built.outputFiles) {
-      const rel = relative(config.out, f.path).split(sep).join("/");
+      const rel = slashes(relative(config.out, f.path));
       ctx.emit(rel, f.contents);
-      if (rel.endsWith(".js")) sums.set(`/${rel}`, integrity(f.contents));
-    }
-    for (const [path, out] of Object.entries(built.metafile.outputs)) {
-      if (!path.endsWith(".js")) continue;
-      const url = urlOf(path);
-      const asset = { url, integrity: sums.get(url)! };
+      if (!rel.endsWith(".js")) continue;
+      const meta = built.metafile.outputs[slashes(relative(config.root, f.path))] as Esbuild.Metafile["outputs"][string] | undefined;
+      const asset = { url: `/${rel}`, integrity: integrity(f.contents) };
       result.files.push(asset);
-      result.imports.set(url, out.imports.filter((i) => i.kind === "import-statement" && !i.external).map((i) => urlOf(i.path)));
-      const name = out.entryPoint ? byEntry.get(resolve(config.root, out.entryPoint)) : undefined;
+      result.imports.set(asset.url, (meta?.imports ?? []).filter((i) => i.kind === "import-statement" && !i.external).map((i) => urlOf(i.path)));
+      const name = meta?.entryPoint ? byEntry.get(resolve(config.root, meta.entryPoint)) : undefined;
       if (name === "loader") result.loader = asset;
       else if (name) result.modules.set(name, asset);
     }

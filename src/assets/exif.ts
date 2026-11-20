@@ -49,6 +49,9 @@ export type Exif = {
 
 const SIZES: Record<number, number> = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
 
+// A tag value: text, a number, a short list of numbers, or raw bytes.
+type Value = string | number | number[] | Buffer;
+
 export function readExif(input: Uint8Array): Exif | undefined {
   const buf = Buffer.from(input.buffer, input.byteOffset, input.byteLength);
   const start = buf.subarray(0, 6).toString("latin1") === "Exif\0\0" ? 6 : 0;
@@ -61,8 +64,8 @@ export function readExif(input: Uint8Array): Exif | undefined {
   if (u16(2) !== 42) return undefined;
 
   // One IFD (a list of tags) as tag number to value.
-  const ifd = (offset: number): Map<number, unknown> => {
-    const tags = new Map<number, unknown>();
+  const ifd = (offset: number): Map<number, Value> => {
+    const tags = new Map<number, Value>();
     if (!offset || start + offset + 2 > buf.length) return tags;
     const count = u16(offset);
     for (let i = 0; i < count; i++) {
@@ -70,7 +73,9 @@ export function readExif(input: Uint8Array): Exif | undefined {
       if (start + at + 12 > buf.length) break;
       const tagId = u16(at), type = u16(at + 2), n = u32(at + 4);
       const size = (SIZES[type] ?? 0) * n;
-      if (!size) continue;
+      // The fields that this reader returns hold at most a few numbers. Long
+      // lists, such as strip offsets, are skipped unread.
+      if (!size || (type !== 2 && type !== 7 && n > 16)) continue;
       const data = size <= 4 ? at + 8 : u32(at + 8);
       if (start + data + size > buf.length) continue;
       const read = (k: number): number => {
@@ -94,8 +99,8 @@ export function readExif(input: Uint8Array): Exif | undefined {
   const ifd0 = ifd(u32(4));
   const sub = ifd(Number(ifd0.get(0x8769) ?? 0));
   const gpsTags = ifd(Number(ifd0.get(0x8825) ?? 0));
-  const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
-  const num = (v: unknown) => (typeof v === "number" ? v : Array.isArray(v) && typeof v[0] === "number" ? (v[0] as number) : undefined);
+  const str = (v?: Value) => (typeof v === "string" && v ? v : undefined);
+  const num = (v?: Value) => (typeof v === "number" ? v : Array.isArray(v) ? v[0] : undefined);
 
   const exif: Exif = {
     orientation: num(ifd0.get(0x0112)),
@@ -111,7 +116,7 @@ export function readExif(input: Uint8Array): Exif | undefined {
     lensModel: str(sub.get(0xa434)),
   };
   // GPS degrees, minutes and seconds, with N/S and E/W references.
-  const dms = (v: unknown) => (Array.isArray(v) && v.length === 3 ? v[0] + v[1] / 60 + v[2] / 3600 : undefined);
+  const dms = (v?: Value) => (Array.isArray(v) && v.length === 3 ? v[0] + v[1] / 60 + v[2] / 3600 : undefined);
   const lat = dms(gpsTags.get(2)), lon = dms(gpsTags.get(4));
   if (lat !== undefined && lon !== undefined) {
     const alt = num(gpsTags.get(6));

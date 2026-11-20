@@ -142,7 +142,7 @@ describe("processImage", () => {
     assert.notDeepEqual(marked.data, plain.data);
     // The half-transparent red square is at the top left.
     const { data } = await sharp(marked.data).extract({ left: 10, top: 10, width: 1, height: 1 }).raw().toBuffer({ resolveWithObject: true });
-    assert.ok(data[0] > data[1] + 60, `red over the sky: ${[...data]}`);
+    assert.ok(data[0] > data[1] + 60, `red over the sky: ${[...data].join(", ")}`);
   });
 });
 

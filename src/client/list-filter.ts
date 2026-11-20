@@ -58,7 +58,7 @@ class ListFilter extends HTMLElement {
     let shown = 0, total = 0;
     for (const el of document.querySelectorAll(selector)) {
       if (!(el instanceof HTMLElement)) continue;
-      const hay = el.dataset.search ?? el.textContent?.toLowerCase() ?? "";
+      const hay = (el.dataset.search ?? el.textContent).toLowerCase();
       el.hidden = !terms.every((t) => hay.includes(t));
       total++;
       if (!el.hidden) shown++;

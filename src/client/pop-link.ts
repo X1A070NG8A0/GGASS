@@ -33,21 +33,24 @@
 // touch screen (no hover), a tap opens the content in a sheet, and the sheet
 // links to the full page. A "preview" event (the p shortcut) opens a window
 // for keyboard users and moves the focus into it. Escape closes it and
-// returns the focus to the link. A modified click follows the link as usual. Without
-// JavaScript, it is a link.
+// returns the focus to the link. A modified click follows the link as usual.
+// Without JavaScript, it is a link.
 
 import { PopWindow, SHOW_DELAY, scheduleSweep } from "./pop-window.ts";
 
 const touch = matchMedia("(hover: none)");
+const EVENTS = ["pointerover", "pointerout", "click", "preview"];
 let showTimer: number | undefined;
 
 class PopLink extends HTMLElement {
   connectedCallback(): void {
-    for (const type of ["pointerover", "pointerout", "click", "preview"]) this.addEventListener(type, this);
+    for (const type of EVENTS) this.addEventListener(type, this);
   }
 
   disconnectedCallback(): void {
-    for (const type of ["pointerover", "pointerout", "click", "preview"]) this.removeEventListener(type, this);
+    for (const type of EVENTS) this.removeEventListener(type, this);
+    // A link that leaves the page opens no window later.
+    clearTimeout(showTimer);
   }
 
   handleEvent(e: Event): void {

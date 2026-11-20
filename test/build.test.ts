@@ -35,13 +35,20 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, describe, test } from "node:test";
-import { build, integrity, type BuildResult } from "ggass";
+import { build, integrity, textOf, type BuildResult } from "ggass";
 import { site } from "./fixture/build.ts";
 
 const temp = mkdtempSync(join(tmpdir(), "ggass-test-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const read = (out: string, rel: string) => readFileSync(join(out, rel), "utf8");
+
+// The import map of a page.
+const importMap = (html: string) => {
+  const json = /<script type="importmap">(.*?)<\/script>/.exec(html)?.[1];
+  assert.ok(json, "the page has an import map");
+  return JSON.parse(json) as { imports: Record<string, string>; integrity: Record<string, string> };
+};
 
 // The integrity value in each tag must match the file it names.
 function checkIntegrity(out: string, html: string): number {
@@ -50,8 +57,7 @@ function checkIntegrity(out: string, html: string): number {
     assert.equal(integrity(readFileSync(join(out, m[1].slice(1)))), m[2], `integrity of ${m[1]}`);
     n++;
   }
-  const map = JSON.parse(html.match(/<script type="importmap">(.*?)<\/script>/)![1]) as { imports: Record<string, string>; integrity: Record<string, string> };
-  for (const [url, sum] of Object.entries(map.integrity)) {
+  for (const [url, sum] of Object.entries(importMap(html).integrity)) {
     assert.equal(integrity(readFileSync(join(out, url.slice(1)))), sum, `import map integrity of ${url}`);
     n++;
   }
@@ -107,7 +113,8 @@ describe("build with esbuild and sharp", () => {
     assert.ok(html.includes('<a href="#the-wide-presentation">The wide presentation</a><ol><li><a href="#keyboard-shortcuts">'));
     assert.ok(!html.includes('href="#endnotes-title"'), "the print notes heading is not in the contents");
     assert.ok(html.includes('<button type="button" popovertarget="toc">Contents</button>'));
-    assert.ok(!read(out, "index.html").includes('id="toc"'), "a short page has no contents");
+    assert.ok(!read(out, "index.html").includes('id="toc"'), "a page with no headings has no contents");
+    assert.ok(!read(out, "elements/tab-two.html").includes('id="toc"'), "a page with fewer than toc.min headings has no contents");
   });
 
   test("processes images and writes responsive copies", () => {
@@ -189,13 +196,29 @@ describe("site components", () => {
       const out = join(temp, `out-component-${engine}`);
       const result = await build({ ...site, out, images: false, offline: false, js: { engine, components: { "test-widget": join(dir, "test-widget.ts") } } }, { quiet: true });
       assert.deepEqual(result.errors, []);
-      const map = JSON.parse(read(out, "index.html").match(/<script type="importmap">(.*?)<\/script>/)![1]) as { imports: Record<string, string>; integrity: Record<string, string> };
+      const map = importMap(read(out, "index.html"));
       const url = map.imports["ggass/test-widget"];
       assert.ok(url, "the component is in the import map");
       assert.ok(map.integrity[url], "with its integrity value");
       assert.ok(!read(out, url.slice(1)).includes(": void"), "the types are gone");
     });
   }
+});
+
+describe("pages", () => {
+  test("text keeps an escaped entity escaped", () => {
+    assert.equal(textOf("a &amp;lt;b&amp;gt; &lt;c&gt; &amp;amp;"), "a &lt;b&gt; <c> &amp;");
+  });
+
+  test("a number in the YAML header is text, and a map is an error", async () => {
+    const dir = join(temp, "yaml");
+    mkdirSync(join(dir, "content"), { recursive: true });
+    writeFileSync(join(dir, "content", "year.html"), "<!--\ntitle: 2026\nkind: 7\n-->\n<h1>2026</h1>\n");
+    writeFileSync(join(dir, "content", "map.html"), "<!--\ntitle: { a: 1 }\n-->\n<h1>Map</h1>\n");
+    const result = await build({ name: "YAML", root: dir, images: false }, { check: true, quiet: true });
+    assert.deepEqual(result.errors, ["content/map.html: no title (it must be text)"]);
+    process.exitCode = 0;
+  });
 });
 
 describe("check", () => {

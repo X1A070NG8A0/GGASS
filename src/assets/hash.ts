@@ -49,7 +49,9 @@ export const fingerprinted = (path: string, data: string | Uint8Array, on: boole
   on ? path.replace(/(\.[^./]+)$/, `-${shortHash(data)}$1`) : path;
 
 // A file cache in the cache folder. If the file for `key` exists, it is the
-// result. If not, `make` runs and its result is kept.
+// result. If not, `make` runs and its result is kept. Two calls for the same
+// file at the same time share one job. A finished job leaves the map, so the
+// map holds no file data and keeps no failure.
 const running = new Map<string, Promise<Buffer>>();
 export function cached(dir: string, key: string, make: () => Promise<Uint8Array>): Promise<Buffer> {
   const path = join(dir, key);
@@ -66,6 +68,8 @@ export function cached(dir: string, key: string, make: () => Promise<Uint8Array>
       }
     })();
     running.set(path, job);
+    const done = () => running.delete(path);
+    job.then(done, done);
   }
   return job;
 }

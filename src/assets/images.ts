@@ -112,6 +112,20 @@ export type ImageMetadata = {
 
 const RASTER = /\.(jpe?g|png|webp|avif|gif|tiff?)$/i;
 
+// The displayed size: EXIF orientations 5 to 8 turn the image on its side.
+const shown = (m: { width?: number; height?: number; orientation?: number }) =>
+  (m.orientation ?? 1) >= 5 ? { width: m.height, height: m.width } : { width: m.width, height: m.height };
+
+// The format of a raster file from its name: "photo.JPG" gives "jpeg".
+const formatOf = (path: string): string => {
+  const ext = (RASTER.exec(path)?.[1] ?? "png").toLowerCase();
+  return ext === "jpg" ? "jpeg" : ext === "tif" ? "tiff" : ext;
+};
+
+const FITS = ["cover", "contain", "fill", "inside", "outside"];
+const GRAVITIES = ["center", "north", "northeast", "east", "southeast", "south", "southwest", "west", "northwest"];
+const POSITIONS = [...GRAVITIES, "top", "right", "bottom", "left", "attention", "entropy"];
+
 const sharpFor = (root: string) => required<Sharp>("sharp", root, "Image processing");
 
 // ---------- the spec language ----------
@@ -136,6 +150,10 @@ export function parseImageSpec(spec: string): ImageOps {
     if (v === "" || !Number.isFinite(n)) throw new Error(`image option ${k}: "${v}" is not a number`);
     return n;
   };
+  const oneOf = (k: string, v: string | undefined, allowed: string[]) => {
+    if (v === undefined || !allowed.includes(v)) throw new Error(`image option ${k}: "${v ?? ""}" is not one of ${allowed.join(", ")}`);
+    return v;
+  };
   const size = (k: string, v: string) => {
     const m = v.match(/^(\d*)x(\d*)$/);
     if (!m || (!m[1] && !m[2])) throw new Error(`image option ${k}: "${v}" is not a size such as 800x600, 800x or x600`);
@@ -149,12 +167,14 @@ export function parseImageSpec(spec: string): ImageOps {
         ops.resize = { ...ops.resize, ...size(k, v ?? "") };
         break;
       case "fit":
-        ops.resize = { ...ops.resize, fit: v as NonNullable<ImageOps["resize"]>["fit"] };
+        ops.resize = { ...ops.resize, fit: oneOf(k, v, FITS) as NonNullable<ImageOps["resize"]>["fit"] };
         break;
-      case "position":
-        ops.resize = { ...ops.resize, position: v as Position };
-        if (ops.crop) ops.crop.position = v as Position;
+      case "position": {
+        const position = oneOf(k, v, POSITIONS) as Position;
+        ops.resize = { ...ops.resize, position };
+        if (ops.crop) ops.crop.position = position;
         break;
+      }
       case "crop": {
         const aspect = v?.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
         const box = v?.match(/^(\d+)x(\d+)(?:\+(\d+)\+(\d+))?$/);
@@ -195,7 +215,7 @@ export function parseImageSpec(spec: string): ImageOps {
   if (overlay.overlay) {
     overlays.push({
       image: overlay.overlay,
-      gravity: (overlay["overlay-gravity"] as Gravity) || undefined,
+      gravity: overlay["overlay-gravity"] ? (oneOf("overlay-gravity", overlay["overlay-gravity"], GRAVITIES) as Gravity) : undefined,
       opacity: overlay["overlay-opacity"] ? number("overlay-opacity", overlay["overlay-opacity"]) : undefined,
       width: overlay["overlay-width"] ? number("overlay-width", overlay["overlay-width"]) : undefined,
     });
@@ -203,7 +223,7 @@ export function parseImageSpec(spec: string): ImageOps {
   if (text.text) {
     overlays.push({
       text: text.text,
-      gravity: (text["text-gravity"] as Gravity) || undefined,
+      gravity: text["text-gravity"] ? (oneOf("text-gravity", text["text-gravity"], GRAVITIES) as Gravity) : undefined,
       size: text["text-size"] ? number("text-size", text["text-size"]) : undefined,
       color: text["text-color"] || undefined,
       font: text["text-font"] || undefined,
@@ -216,10 +236,9 @@ export function parseImageSpec(spec: string): ImageOps {
 
 // ---------- processing ----------
 
-const toPosition = (p: Position | undefined): string => {
-  const names: Record<string, string> = { north: "top", south: "bottom", east: "right", west: "left", northeast: "right top", northwest: "left top", southeast: "right bottom", southwest: "left bottom" };
-  return p ? names[p] ?? p : "centre";
-};
+// sharp names positions by sides: "north" is "top".
+const SIDES: Record<string, string> = { north: "top", south: "bottom", east: "right", west: "left", northeast: "right top", northwest: "left top", southeast: "right bottom", southwest: "left bottom" };
+const toPosition = (p: Position | undefined): string => (p ? (SIDES[p] ?? p) : "centre");
 
 // A line of text as an SVG image as wide as the photo, placed on its own
 // row: the horizontal part of the gravity becomes the text alignment.
@@ -227,7 +246,7 @@ function textImage(o: Extract<ImageOverlay, { text: string }>, width: number): B
   const size = o.size ?? Math.max(12, Math.round(width / 30));
   const pad = Math.round(size * 0.6);
   const g = o.gravity ?? "southeast";
-  const anchor = /east/.test(g) ? "end" : /west/.test(g) ? "start" : "middle";
+  const anchor = g.includes("east") ? "end" : g.includes("west") ? "start" : "middle";
   const x = anchor === "end" ? width - pad : anchor === "start" ? pad : width / 2;
   const height = Math.round(size * 1.6);
   return Buffer.from(
@@ -243,9 +262,7 @@ export async function processImage(input: string | Uint8Array, ops: ImageOps, op
   const source = typeof input === "string" ? readFileSync(resolve(root, input)) : input;
   let img = sharp(source).autoOrient();
   const meta = await sharp(source).metadata();
-  const turned = (meta.orientation ?? 1) >= 5;
-  let width = (turned ? meta.height : meta.width) ?? 0;
-  let height = (turned ? meta.width : meta.height) ?? 0;
+  let { width = 0, height = 0 } = shown(meta);
 
   if (ops.crop) {
     const c = ops.crop;
@@ -268,7 +285,8 @@ export async function processImage(input: string | Uint8Array, ops: ImageOps, op
     const cut = await img.raw().toBuffer({ resolveWithObject: true });
     img = sharp(cut.data, { raw: { width: cut.info.width, height: cut.info.height, channels: cut.info.channels } });
   }
-  if (ops.resize) {
+  // A position alone (with no size) moves nothing, so it needs no pass.
+  if (ops.resize && (ops.resize.width || ops.resize.height)) {
     const r = ops.resize;
     img = img.resize({ width: r.width, height: r.height, fit: r.fit ?? (r.width && r.height ? "cover" : "inside"), position: toPosition(r.position), withoutEnlargement: true });
   }
@@ -295,7 +313,8 @@ export async function processImage(input: string | Uint8Array, ops: ImageOps, op
     const layers = [];
     for (const o of ops.overlays) {
       if ("text" in o) {
-        layers.push({ input: textImage(o, base.info.width), gravity: /north/.test(o.gravity ?? "") ? "north" : /south/.test(o.gravity ?? "south") ? "south" : "centre" });
+        const g = o.gravity ?? "south";
+        layers.push({ input: textImage(o, base.info.width), gravity: g.includes("north") ? "north" : g.includes("south") ? "south" : "centre" });
         continue;
       }
       let layer = sharp(typeof o.image === "string" ? readFileSync(resolve(root, o.image)) : o.image);
@@ -321,11 +340,9 @@ export async function imageMetadata(input: string | Uint8Array, options: { root?
   const sharp = await sharpFor(root);
   const source = typeof input === "string" ? readFileSync(resolve(root, input)) : input;
   const m = await sharp(source).metadata();
-  const turned = (m.orientation ?? 1) >= 5;
   return {
     format: m.format,
-    width: turned ? m.height : m.width,
-    height: turned ? m.width : m.height,
+    ...shown(m),
     space: m.space,
     channels: m.channels,
     depth: m.depth,
@@ -368,129 +385,131 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
   if (settings && settings.responsive === true && !sharp) errors.push("images.responsive needs sharp. Install it in the site: npm install --save-dev sharp");
   const run = pool(4);
   const cacheDir = join(config.cache, "images");
-  const version = sharp ? JSON.stringify((sharp as unknown as { versions: unknown }).versions) : "";
-  const emitted = new Map<string, string>();
+  const version = sharp ? JSON.stringify(sharp.versions) : "";
+  const emitted = new Set<string>();
   const emit = (name: string, data: Uint8Array) => {
     const rel = `assets/img/${name}`;
     if (!emitted.has(rel)) {
       ctx.emit(rel, data);
-      emitted.set(rel, rel);
+      emitted.add(rel);
     }
     return `/${rel}`;
   };
 
   for (const page of ctx.pages.values()) {
-    const found = [...page.body.matchAll(/<img\b[^>]*>/g)];
+    const found = [...page.body.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
     if (!found.length) continue;
-    let first = true;
-    const results = await Promise.all(
-      found.map(async (m) => {
-        const isFirst = first;
-        first = false;
-        const a = attrs(m[0]);
-        const src = a.get("src") ?? "";
-        const spec = a.get("data-image");
-        a.delete("data-image");
-        if (!a.has("decoding")) a.set("decoding", "async");
-        if (!a.has("loading") && !isFirst) a.set("loading", "lazy");
-        if (!src.startsWith("/") || src.startsWith("//") || !known.has(src.split(/[?#]/)[0])) {
-          if (spec) errors.push(`${page.file}: data-image on "${src}", which is not a file in the content folder`);
+    // One <img> tag in, its new HTML out.
+    const one = async (img: string, isFirst: boolean): Promise<string> => {
+      const a = attrs(img);
+      const src = a.get("src") ?? "";
+      const spec = a.get("data-image");
+      a.delete("data-image");
+      if (!a.has("decoding")) a.set("decoding", "async");
+      if (!a.has("loading") && !isFirst) a.set("loading", "lazy");
+      if (!src.startsWith("/") || src.startsWith("//") || !known.has(src.split(/[?#]/)[0])) {
+        if (spec) errors.push(`${page.file}: data-image on "${src}", which is not a file in the content folder`);
+        return tag("img", a);
+      }
+      const path = join(config.content, src.split(/[?#]/)[0].slice(1));
+      const bytes = readFileSync(path);
+      const raster = RASTER.test(src);
+      let base: { data: Uint8Array; width: number; height: number; format: string } | undefined;
+      let stem = basename(src, extname(src));
+      let writeBase = () => {};
+      if (spec) {
+        if (!raster) {
+          errors.push(`${page.file}: data-image on "${src}": only raster images (JPEG, PNG, WebP, AVIF, GIF, TIFF) take operations`);
           return tag("img", a);
         }
-        const path = join(config.content, src.split(/[?#]/)[0].slice(1));
-        const bytes = readFileSync(path);
-        const raster = RASTER.test(src);
-        let base: { data: Uint8Array; width: number; height: number; format: string } | undefined;
-        let stem = basename(src, extname(src));
-        let writeBase = () => {};
-        if (spec) {
-          if (!raster) {
-            errors.push(`${page.file}: data-image on "${src}": only raster images (JPEG, PNG, WebP, AVIF, GIF, TIFF) take operations`);
-            return tag("img", a);
-          }
-          if (!sharp) {
-            errors.push(`${page.file}: data-image on "${src}" needs sharp. Install it in the site: npm install --save-dev sharp`);
-            return tag("img", a);
-          }
-          let ops: ImageOps;
-          try {
-            ops = parseImageSpec(spec);
-          } catch (e) {
-            errors.push(`${page.file}: data-image on "${src}": ${(e as Error).message}`);
-            return tag("img", a);
-          }
-          // An overlay path that starts with "/" is a file in the content folder.
-          let overlayBytes = "";
-          for (const o of ops.overlays ?? []) {
-            if (!("image" in o) || typeof o.image !== "string") continue;
-            if (!known.has(o.image)) {
-              errors.push(`${page.file}: data-image on "${src}": overlay "${o.image}" is not a file in the content folder`);
-              return tag("img", a);
-            }
-            o.image = readFileSync(join(config.content, o.image.slice(1)));
-            overlayBytes += shortHash(o.image);
-          }
-          const key = shortHash(bytes, JSON.stringify({ ...ops, overlays: ops.overlays?.map((o) => ("image" in o ? { ...o, image: "" } : o)) }), overlayBytes, version);
-          const found = (src.match(RASTER)?.[1] ?? "png").toLowerCase();
-          const inputFormat = found === "jpg" ? "jpeg" : found === "tif" ? "tiff" : found;
-          const ext = (ops.format ?? inputFormat).replace("jpeg", "jpg");
-          const data = await run(() => cached(cacheDir, `${key}.${ext}`, () => processImage(bytes, ops, { root: config.root }).then((r) => r.data)));
-          const info = await sharp(data).metadata();
-          base = { data, width: info.width ?? 0, height: info.height ?? 0, format: info.format ?? inputFormat };
-          // The processed image itself is written only if no responsive
-          // copies replace it.
-          stem = `${basename(src, extname(src))}-${key}`;
-          writeBase = () => void a.set("src", emit(`${stem}.${ext}`, data));
-        }
-        const size = base ?? (raster && sharp ? await sharp(bytes).metadata().then((x) => ({ width: (x.orientation ?? 1) >= 5 ? x.height! : x.width!, height: (x.orientation ?? 1) >= 5 ? x.width! : x.height! })) : readDimensions(bytes));
-        if (!size?.width || !size.height) {
-          if (!a.has("width") || !a.has("height")) ctx.warnings.push(`${page.file}: cannot read the size of "${src}". Give the img a width and a height.`);
+        if (!sharp) {
+          errors.push(`${page.file}: data-image on "${src}" needs sharp. Install it in the site: npm install --save-dev sharp`);
           return tag("img", a);
         }
-        if (!a.has("width") && !a.has("height")) {
-          a.set("width", String(size.width));
-          a.set("height", String(size.height));
-        } else if (!a.has("height")) a.set("height", String(Math.round((Number(a.get("width")) * size.height) / size.width)));
-        else if (!a.has("width")) a.set("width", String(Math.round((Number(a.get("height")) * size.width) / size.height)));
+        let ops: ImageOps;
+        try {
+          ops = parseImageSpec(spec);
+        } catch (e) {
+          errors.push(`${page.file}: data-image on "${src}": ${(e as Error).message}`);
+          return tag("img", a);
+        }
+        // An overlay path that starts with "/" is a file in the content folder.
+        let overlayBytes = "";
+        for (const o of ops.overlays ?? []) {
+          if (!("image" in o) || typeof o.image !== "string") continue;
+          if (!known.has(o.image)) {
+            errors.push(`${page.file}: data-image on "${src}": overlay "${o.image}" is not a file in the content folder`);
+            return tag("img", a);
+          }
+          o.image = readFileSync(join(config.content, o.image.slice(1)));
+          overlayBytes += shortHash(o.image);
+        }
+        const key = shortHash(bytes, JSON.stringify({ ...ops, overlays: ops.overlays?.map((o) => ("image" in o ? { ...o, image: "" } : o)) }), overlayBytes, version);
+        const inputFormat = formatOf(src);
+        const ext = (ops.format ?? inputFormat).replace("jpeg", "jpg");
+        const data = await run(() => cached(cacheDir, `${key}.${ext}`, () => processImage(bytes, ops, { root: config.root }).then((r) => r.data)));
+        const info = await sharp(data).metadata();
+        base = { data, width: info.width ?? 0, height: info.height ?? 0, format: info.format ?? inputFormat };
+        // The processed image itself is written only if no responsive
+        // copies replace it.
+        stem = `${basename(src, extname(src))}-${key}`;
+        writeBase = () => void a.set("src", emit(`${stem}.${ext}`, data));
+      }
+      const size = base ?? (raster && sharp ? shown(await sharp(bytes).metadata()) : readDimensions(bytes));
+      if (!size?.width || !size.height) {
+        if (!a.has("width") || !a.has("height")) ctx.warnings.push(`${page.file}: cannot read the size of "${src}". Give the img a width and a height.`);
+        return tag("img", a);
+      }
+      if (!a.has("width") && !a.has("height")) {
+        a.set("width", String(size.width));
+        a.set("height", String(size.height));
+      } else if (!a.has("height")) a.set("height", String(Math.round((Number(a.get("width")) * size.height) / size.width)));
+      else if (!a.has("width")) a.set("width", String(Math.round((Number(a.get("height")) * size.width) / size.height)));
 
-        if (!responsive || !settings || !raster || /\.gif$/i.test(src) || !sharp) {
-          writeBase();
-          return tag("img", a);
-        }
-        // Responsive copies: each width below the image width, and the image
-        // width itself up to the largest configured width.
-        const source = base?.data ?? bytes;
-        const fullWidth = size.width;
-        const max = Math.max(...settings.widths);
-        const widths = [...new Set([...settings.widths.filter((w) => w < fullWidth), Math.min(fullWidth, max)])].sort((x, y) => x - y);
-        const inputFormat = base?.format ?? (src.match(/\.png$/i) ? "png" : "jpeg");
-        const fallback = inputFormat === "png" ? "png" : "jpeg";
-        const formats = [...new Set([...settings.formats.filter((f) => f !== fallback), fallback])];
-        const sets = new Map<string, string[]>();
-        let largest = "";
-        for (const format of formats) {
-          const list: string[] = [];
-          for (const w of widths) {
+      if (!responsive || !settings || !raster || /\.gif$/i.test(src) || !sharp) {
+        writeBase();
+        return tag("img", a);
+      }
+      // Responsive copies: each width below the image width, and the image
+      // width itself up to the largest configured width.
+      const source = base?.data ?? bytes;
+      const fullWidth = size.width;
+      const max = Math.max(...settings.widths);
+      const widths = [...new Set([...settings.widths.filter((w) => w < fullWidth), Math.min(fullWidth, max)])].sort((x, y) => x - y);
+      // The <img> keeps a JPEG or PNG copy for browsers without AVIF or WebP.
+      const fallback = (base?.format ?? formatOf(src)) === "png" ? "png" : "jpeg";
+      const extra = [...new Set(settings.formats)].filter((f) => f !== fallback);
+      // The URL of each width in one format. All copies are made at once,
+      // and the pool limits how many run together.
+      const copies = (format: string) =>
+        Promise.all(
+          widths.map(async (w) => {
             const key = shortHash(source, String(w), format, String(settings.quality ?? ""), version);
             const ext = format === "jpeg" ? "jpg" : format;
             const data = await run(() =>
               cached(cacheDir, `${key}.${ext}`, () => processImage(source, { resize: { width: w }, format: format as OutputFormat, quality: settings.quality }, { root: config.root }).then((r) => r.data)),
             );
-            const url = emit(`${stem}-${w}-${key}.${ext}`, data);
-            list.push(`${url} ${w}w`);
-            if (format === fallback) largest = url;
-          }
-          sets.set(format, list);
-        }
-        a.set("src", largest);
-        a.set("srcset", sets.get(fallback)!.join(", "));
-        if (!a.has("sizes")) a.set("sizes", settings.sizes);
-        const sources = formats
-          .filter((f) => f !== fallback)
-          .map((f) => `<source type="${MIME[f]}" srcset="${esc(sets.get(f)!.join(", "))}" sizes="${esc(a.get("sizes")!)}">`)
-          .join("");
-        return `<picture>${sources}${tag("img", a)}</picture>`;
-      }),
+            return emit(`${stem}-${w}-${key}.${ext}`, data);
+          }),
+        );
+      const srcset = (urls: string[]) => urls.map((u, i) => `${u} ${widths[i]}w`).join(", ");
+      const [main, ...others] = await Promise.all([fallback, ...extra].map(copies));
+      a.set("src", main[main.length - 1]);
+      a.set("srcset", srcset(main));
+      const sizes = a.get("sizes") ?? settings.sizes;
+      a.set("sizes", sizes);
+      const sources = others.map((urls, i) => `<source type="${MIME[extra[i]]}" srcset="${esc(srcset(urls))}" sizes="${esc(sizes)}">`).join("");
+      return `<picture>${sources}${tag("img", a)}</picture>`;
+    };
+    // A failure in one image is an error for that image, not a crash of the
+    // build.
+    const results = await Promise.all(
+      found.map((img, i) =>
+        one(img, i === 0).catch((e: unknown) => {
+          errors.push(`${page.file}: image "${attrs(img).get("src") ?? ""}": ${e instanceof Error ? e.message : String(e)}`);
+          return img;
+        }),
+      ),
     );
     let i = 0;
     page.body = page.body.replace(/<img\b[^>]*>/g, () => results[i++]);
