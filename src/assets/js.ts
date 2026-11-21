@@ -29,22 +29,16 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { readFileSync } from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
-import { basename, dirname, join, relative, resolve } from "node:path";
-import type * as Esbuild from "esbuild";
+import { join, relative, resolve } from "node:path";
+import esbuild from "esbuild";
+import type { Component } from "../components.ts";
 import { slashes, type Asset, type BuildContext } from "../steps.ts";
-import { fingerprinted, integrity, shortHash } from "./hash.ts";
-import { engine, esbuildErrors } from "./optional.ts";
+import { integrity, shortHash } from "./hash.ts";
+import { esbuildErrors } from "./optional.ts";
 
 const CLIENT = join(import.meta.dirname, "..", "client");
 const LOADER = join(CLIENT, "loader.ts");
 const WORKER = join(CLIENT, "worker", "sw.ts");
-
-// Each tag needs a module of the same name in src/client/.
-const BUILTIN_COMPONENTS = [
-  "check-list", "list-filter", "site-search", "pop-link", "section-tabs", "step-sequence",
-  "photo-zoom", "side-note", "page-toc", "key-shortcuts", "share-button",
-];
 
 const BANNER = "/*! GGASS components | Apache-2.0 OR LGPL-2.1-or-later */";
 
@@ -55,133 +49,63 @@ export type Scripts = {
   imports: Map<string, string[]>;
 };
 
-// Node's type stripping prints an experimental warning. The build uses it on
-// purpose, so this hides that one warning.
-function stripTypesQuietly(source: string): string {
-  const emit = process.emitWarning;
-  process.emitWarning = (warning: string | Error, ...rest: unknown[]) => {
-    if ((typeof warning === "string" ? warning : warning.message).includes("stripTypeScriptTypes")) return;
-    Reflect.apply(emit, process, [warning, ...rest]);
-  };
-  try {
-    return stripTypeScriptTypes(source, { mode: "strip" });
-  } finally {
-    process.emitWarning = emit;
-  }
-}
-
-export async function buildJs(ctx: BuildContext): Promise<Scripts | undefined> {
+export async function buildJs(ctx: BuildContext, components: Map<string, Component>): Promise<Scripts | undefined> {
   const { config, errors } = ctx;
-  const components: Record<string, string> = Object.fromEntries(BUILTIN_COMPONENTS.map((tag) => [tag, join(CLIENT, `${tag}.ts`)]));
-  for (const [tag, file] of Object.entries(config.js.components)) {
-    if (!/^[a-z][a-z0-9]*-[a-z0-9-]*$/.test(tag)) errors.push(`js.components: "${tag}" is not a custom element name (lower case, with a hyphen)`);
-    components[tag] = file;
-  }
-  const esbuild = await engine<typeof Esbuild>("esbuild", config.js.engine, config.root, "js.engine \"esbuild\"", errors);
   const result: Scripts = { loader: { url: "", integrity: "" }, modules: new Map(), files: [], imports: new Map() };
-
-  if (esbuild) {
-    const entries = [{ in: LOADER, out: "loader" }, ...Object.entries(components).map(([tag, file]) => ({ in: file, out: tag }))];
-    let built: Esbuild.BuildResult<{ write: false; metafile: true }>;
-    try {
-      built = await esbuild.build({
-        entryPoints: entries,
-        bundle: true,
-        splitting: true,
-        format: "esm",
-        platform: "browser",
-        target: config.js.target,
-        minify: config.js.minify,
-        treeShaking: true,
-        sourcemap: config.js.sourcemap ? "linked" : false,
-        write: false,
-        metafile: true,
-        outdir: join(config.out, "assets"),
-        entryNames: config.fingerprint ? "[name]-[hash]" : "[name]",
-        chunkNames: "chunk-[hash]",
-        banner: { js: BANNER },
-        legalComments: "none",
-        jsx: config.js.jsx,
-        jsxImportSource: config.js.jsxImportSource,
-        jsxFactory: config.js.jsxFactory,
-        jsxFragment: config.js.jsxFragment,
-        absWorkingDir: config.root,
-        logLevel: "silent",
-      });
-    } catch (e) {
-      for (const m of esbuildErrors(e, config.root)) errors.push(`JavaScript: ${m}`);
-      return undefined;
-    }
-    const byEntry = new Map(entries.map((e) => [resolve(e.in), e.out]));
-    // The metafile names files relative to the site root.
-    const urlOf = (metaPath: string) => "/" + slashes(relative(config.out, resolve(config.root, metaPath)));
-    for (const f of built.outputFiles) {
-      const rel = slashes(relative(config.out, f.path));
-      ctx.emit(rel, f.contents);
-      if (!rel.endsWith(".js")) continue;
-      const meta = built.metafile.outputs[slashes(relative(config.root, f.path))] as Esbuild.Metafile["outputs"][string] | undefined;
-      const asset = { url: `/${rel}`, integrity: integrity(f.contents) };
-      result.files.push(asset);
-      result.imports.set(asset.url, (meta?.imports ?? []).filter((i) => i.kind === "import-statement" && !i.external).map((i) => urlOf(i.path)));
-      const name = meta?.entryPoint ? byEntry.get(resolve(config.root, meta.entryPoint)) : undefined;
-      if (name === "loader") result.loader = asset;
-      else if (name) result.modules.set(name, asset);
-    }
-    return result;
-  }
-
-  const done = new Map<string, Asset>();
-  const visiting = new Set<string>();
-  const emitModule = (file: string, name: string): Asset | undefined => {
-    const emitted = done.get(file);
-    if (emitted) return emitted;
-    if (visiting.has(file)) {
-      errors.push(`${relative(config.root, file)}: import cycle. The built-in JavaScript route needs modules without cycles, or esbuild.`);
-      return undefined;
-    }
-    if (/\.[jt]sx$/.test(file)) {
-      errors.push(`${relative(config.root, file)}: JSX needs esbuild. Install it in the site: npm install --save-dev esbuild`);
-      return undefined;
-    }
-    visiting.add(file);
-    let source: string;
-    try {
-      source = readFileSync(file, "utf8");
-    } catch {
-      errors.push(`${relative(config.root, file)}: module not found`);
-      return undefined;
-    }
-    if (/\.[mc]?ts$/.test(file)) source = stripTypesQuietly(source);
-    const deps: string[] = [];
-    source = source.replace(/(\bfrom\s*|\bimport\s*\(\s*|\bimport\s*)(["'])(\.{1,2}\/[^"'\n]+)\2/g, (all, before: string, q: string, spec: string) => {
-      const dep = emitModule(resolve(dirname(file), spec), basename(spec).replace(/\.[mc]?[jt]sx?$/, ""));
-      if (!dep) return all;
-      if (!before.includes("(")) deps.push(dep.url);
-      return `${before}${q}${dep.url}${q}`;
+  const entries = [{ in: LOADER, out: "loader" }];
+  for (const c of components.values()) if (c.client) entries.push({ in: c.client, out: c.tag });
+  let built: esbuild.BuildResult<{ write: false; metafile: true }>;
+  try {
+    built = await esbuild.build({
+      entryPoints: entries,
+      bundle: true,
+      splitting: true,
+      format: "esm",
+      platform: "browser",
+      target: config.js.target,
+      minify: config.js.minify,
+      treeShaking: true,
+      sourcemap: config.js.sourcemap ? "linked" : false,
+      write: false,
+      metafile: true,
+      outdir: join(config.out, "assets"),
+      entryNames: config.fingerprint ? "[name]-[hash]" : "[name]",
+      chunkNames: "chunk-[hash]",
+      banner: { js: BANNER },
+      legalComments: "none",
+      jsx: config.js.jsx,
+      jsxImportSource: config.js.jsxImportSource,
+      jsxFactory: config.js.jsxFactory,
+      jsxFragment: config.js.jsxFragment,
+      absWorkingDir: config.root,
+      logLevel: "silent",
     });
-    visiting.delete(file);
-    const rel = fingerprinted(`assets/${name}.js`, source, config.fingerprint);
-    ctx.emit(rel, source);
-    const asset = { url: `/${rel}`, integrity: integrity(source) };
-    done.set(file, asset);
+  } catch (e) {
+    for (const m of esbuildErrors(e, config.root)) errors.push(`JavaScript: ${m}`);
+    return undefined;
+  }
+  const byEntry = new Map(entries.map((e) => [resolve(e.in), e.out]));
+  // The metafile names files relative to the site root.
+  const urlOf = (metaPath: string) => "/" + slashes(relative(config.out, resolve(config.root, metaPath)));
+  for (const f of built.outputFiles) {
+    const rel = slashes(relative(config.out, f.path));
+    ctx.emit(rel, f.contents);
+    if (!rel.endsWith(".js")) continue;
+    const meta = built.metafile.outputs[slashes(relative(config.root, f.path))] as esbuild.Metafile["outputs"][string] | undefined;
+    const asset = { url: `/${rel}`, integrity: integrity(f.contents) };
     result.files.push(asset);
-    result.imports.set(asset.url, deps);
-    return asset;
-  };
-  result.loader = emitModule(LOADER, "loader") ?? result.loader;
-  for (const [tag, file] of Object.entries(components)) {
-    const asset = emitModule(resolve(file), tag);
-    if (asset) result.modules.set(tag, asset);
+    result.imports.set(asset.url, (meta?.imports ?? []).filter((i) => i.kind === "import-statement" && !i.external).map((i) => urlOf(i.path)));
+    const name = meta?.entryPoint ? byEntry.get(resolve(config.root, meta.entryPoint)) : undefined;
+    if (name === "loader") result.loader = asset;
+    else if (name) result.modules.set(name, asset);
   }
   return result;
 }
 
 // At /sw.js, so that the scope of the worker is the whole site.
 export async function buildServiceWorker(ctx: BuildContext, precache: string[]): Promise<void> {
-  const { config, errors } = ctx;
-  const source = readFileSync(WORKER, "utf8");
-  const esbuild = await engine<typeof Esbuild>("esbuild", config.js.engine, config.root, "js.engine \"esbuild\"", errors);
-  const code = esbuild ? (await esbuild.transform(source, { loader: "ts", minify: config.js.minify, target: config.js.target })).code : stripTypesQuietly(source);
+  const { config } = ctx;
+  const { code } = await esbuild.transform(readFileSync(WORKER, "utf8"), { loader: "ts", minify: config.js.minify, target: config.js.target });
   const version = `ggass-${shortHash(precache.join("\n"))}`;
   ctx.emit("sw.js", `const PRECACHE = ${JSON.stringify(precache)};\nconst VERSION = ${JSON.stringify(version)};\n${code}`);
 }

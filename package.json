@@ -2,11 +2,12 @@
   "name": "ggass",
   "version": "0.1.0",
   "private": true,
-  "description": "Static site generator library: HTML pages with a YAML header, light DOM custom elements, and asset processing for CSS, JavaScript, images and fonts.",
+  "description": "Static site generator library: YAML pages rendered by TSX templates, light DOM custom elements, and asset processing for CSS, JavaScript, images and fonts.",
   "license": "Apache-2.0 OR LGPL-2.1-or-later",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./jsx-runtime": "./src/jsx-runtime.ts",
     "./style.css": "./src/style/ggass.css"
   },
   "engines": {
@@ -14,28 +15,27 @@
   },
   "files": [
     "src",
+    "template",
+    "component",
     "LICENSES",
     "LICENSE.txt",
     "README.md"
   ],
   "scripts": {
-    "check": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json && tsc -p src/client/worker/tsconfig.json",
+    "check": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json && tsc -p component/tsconfig.json && tsc -p src/client/worker/tsconfig.json",
     "test": "node --test \"test/**/*.test.ts\"",
     "fixture": "node test/fixture/build.ts",
     "serve": "node test/fixture/build.ts --serve"
   },
   "dependencies": {
+    "esbuild": "0.28.2",
     "yaml": "2.6.1"
   },
   "peerDependencies": {
-    "esbuild": ">=0.25",
     "sharp": ">=0.34",
     "subset-font": ">=2"
   },
   "peerDependenciesMeta": {
-    "esbuild": {
-      "optional": true
-    },
     "sharp": {
       "optional": true
     },
@@ -45,7 +45,6 @@
   },
   "devDependencies": {
     "@types/node": "24.19.2",
-    "esbuild": "0.28.2",
     "sharp": "0.35.5",
     "subset-font": "2.9.0",
     "typescript": "5.9.3"

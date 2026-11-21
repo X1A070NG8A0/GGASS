@@ -11,9 +11,12 @@
 !/package-lock.json
 !/tsconfig.json
 !/src/
+!/template/
+!/component/
 !/test/
 
 !*.ts
+!*.tsx
 !*.js
 !*.mjs
 !*.cjs

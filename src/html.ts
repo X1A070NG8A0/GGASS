@@ -1,4 +1,4 @@
-// html.ts - HTML helpers and the page layout
+// html.ts - HTML helpers
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.
@@ -27,9 +27,6 @@
 // <https://www.apache.org/licenses/LICENSE-2.0>.
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
-
-import type { ResolvedConfig } from "./config.ts";
-import type { TocEntry } from "./content.ts";
 
 const ENTITIES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
@@ -72,72 +69,4 @@ export function attrs(tag: string): Map<string, string> {
 export function tag(name: string, list: Map<string, string>): string {
   const parts = [...list].map(([k, v]) => (v === "" ? ` ${k}` : ` ${k}="${esc(v)}"`));
   return `<${name}${parts.join("")}>`;
-}
-
-function tocList(entries: TocEntry[]): string {
-  const items: { entry: TocEntry; children: TocEntry[] }[] = [];
-  for (const entry of entries) {
-    const last = items.at(-1);
-    if (entry.level === 3 && last?.entry.level === 2) last.children.push(entry);
-    else items.push({ entry, children: [] });
-  }
-  const link = (e: TocEntry) => `<a href="#${esc(e.id)}">${esc(e.text)}</a>`;
-  const item = ({ entry, children }: (typeof items)[number]) =>
-    `<li>${link(entry)}${children.length ? `<ol>${children.map((c) => `<li>${link(c)}</li>`).join("")}</ol>` : ""}</li>`;
-  return `<ol>${items.map(item).join("")}</ol>`;
-}
-
-const isCurrent = (href: string, url: string): boolean => target(href) === url || (href.endsWith("/") && url.startsWith(href));
-
-export type LayoutInput = {
-  config: ResolvedConfig;
-  url: string;
-  title: string;
-  toc: TocEntry[];
-  body: string;
-  head: string;
-};
-
-export function layout({ config, url, title, toc, body, head }: LayoutInput): string {
-  const nav = config.nav.map((n) => `<a href="${esc(n.href)}"${isCurrent(n.href, url) ? ' aria-current="page"' : ""}>${esc(n.label)}</a>`).join("\n    ");
-  const contents = toc.length
-    ? `<nav class="toc" id="toc" aria-labelledby="toc-title" popover>
-<h2 class="toc-title" id="toc-title">Contents</h2>
-<page-toc>${tocList(toc)}</page-toc>
-</nav>
-`
-    : "";
-  const tools = [
-    toc.length ? `<button type="button" popovertarget="toc">Contents</button>` : "",
-    `<a href="/search.html">Search</a>`,
-    config.share ? "<share-button></share-button>" : "",
-    `<a href="#top">Top</a>`,
-  ].filter(Boolean);
-  return `<!doctype html>
-<html lang="${esc(config.lang)}"${config.offline ? ' data-sw="/sw.js"' : ""}>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${url === "/index.html" ? esc(config.name) : `${esc(title)} · ${esc(config.name)}`}</title>
-${head}
-</head>
-<body>
-<a class="skip" href="#main">Skip to content</a>
-${config.shortcuts ? "<key-shortcuts></key-shortcuts>\n" : ""}<header class="site">
-  <a class="brand" href="/">${esc(config.name)}</a>
-  <nav aria-label="Site">
-    ${nav}
-  </nav>
-</header>
-<div class="frame${toc.length ? " has-toc" : ""}">
-${contents}<main id="main">
-${body}
-</main>
-</div>
-${config.footer ? `<footer class="site">\n  ${config.footer.trim()}\n</footer>\n` : ""}<nav class="dock" aria-label="Page tools">
-  ${tools.join("\n  ")}
-</nav>
-</body>
-</html>
-`;
 }

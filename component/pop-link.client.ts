@@ -1,4 +1,4 @@
-// pop-link.ts - the <pop-link> element
+// pop-link.client.ts - the <pop-link> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.
@@ -28,7 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-import { PopWindow, SHOW_DELAY, scheduleSweep } from "./pop-window.ts";
+import { PopWindow, SHOW_DELAY, scheduleSweep } from "./pop-window.client.ts";
 
 const noHover = matchMedia("(hover: none)");
 const EVENTS = ["pointerover", "pointerout", "click", "preview"];

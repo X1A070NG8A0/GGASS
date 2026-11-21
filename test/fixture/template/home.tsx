@@ -1,4 +1,4 @@
-// share-button.ts - the <share-button> element
+// home.tsx - the home page of the test site: a lede, a search field, and cards from data/cards.yaml
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.
@@ -28,16 +28,33 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-class ShareButton extends HTMLElement {
-  connectedCallback(): void {
-    if (this.firstChild || typeof navigator.share !== "function") return;
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = "Share";
-    // A closed share sheet or a refusal rejects the promise. Both are normal.
-    b.addEventListener("click", () => void navigator.share({ title: document.title, url: location.href }).catch(() => undefined));
-    this.append(b);
-  }
-}
+import { template, text } from "ggass";
 
-customElements.define("share-button", ShareButton);
+type Card = { href: string; label: string; text: string };
+
+export default template({
+  fields: { lede: text() },
+  render: (page, site) => (
+    <>
+      <h1 class="brandmark">{site.config.name}</h1>
+      {"\n"}
+      <p class="lede">{page.lede}</p>
+      {"\n"}
+      <site-search>
+        <form class="home-search" action="/search.html">
+          <label class="field" for="home-q">Search this site</label>
+          <input type="search" id="home-q" name="q" />
+        </form>
+      </site-search>
+      {"\n"}
+      <ul class="cards">
+        {(site.data.cards as Card[]).map((c) => (
+          <li>
+            <a href={c.href}>{c.label}</a>
+            <span>{c.text}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  ),
+});

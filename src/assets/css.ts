@@ -28,140 +28,64 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-import { readFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
-import type * as Esbuild from "esbuild";
+import { basename, join, relative } from "node:path";
+import esbuild from "esbuild";
 import { slashes, type Asset, type BuildContext } from "../steps.ts";
 import { fingerprinted, integrity } from "./hash.ts";
-import { engine, esbuildErrors } from "./optional.ts";
+import { esbuildErrors } from "./optional.ts";
 
 const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
 
-export function minifyCss(css: string): string {
-  let out = "";
-  let code = "";
-  const flush = () => {
-    let done = code
-      .replace(/\s+/g, " ")
-      .replace(/\s*([{};,>])\s*/g, "$1")
-      .replace(/:\s+/g, ":");
-    if (out.endsWith("*/")) done = done.replace(/^ /, "");
-    out += done;
-    code = "";
-  };
-  for (let i = 0; i < css.length; ) {
-    const c = css[i];
-    if (c === "/" && css[i + 1] === "*") {
-      const end = css.indexOf("*/", i + 2);
-      const stop = end < 0 ? css.length : end + 2;
-      if (css[i + 2] === "!") {
-        flush();
-        out += css.slice(i, stop);
-      } else code += " ";
-      i = stop;
-      continue;
-    }
-    if (c === '"' || c === "'") {
-      let j = i + 1;
-      while (j < css.length && css[j] !== c && css[j] !== "\n") j += css[j] === "\\" ? 2 : 1;
-      flush();
-      out += css.slice(i, j + 1);
-      i = j + 1;
-      continue;
-    }
-    code += c;
-    i++;
-  }
-  flush();
-  return out.replace(/;}/g, "}").trim();
-}
+// Root-relative URLs stay as written. esbuild's `external: ["/*"]` also
+// matches resolved file paths, so this is a plugin.
+const rootRelative: esbuild.Plugin = {
+  name: "root-relative",
+  setup: (b) => void b.onResolve({ filter: /^\// }, (args) => (args.kind === "entry-point" ? undefined : { path: args.path, external: true })),
+};
 
-const FILE_TYPES = /\.(woff2?|ttf|otf|png|jpe?g|gif|svg|webp|avif)$/i;
+const FILE_LOADERS: Record<string, esbuild.Loader> = Object.fromEntries(
+  ["woff2", "woff", "ttf", "otf", "png", "jpg", "jpeg", "gif", "svg", "webp", "avif"].map((ext) => [`.${ext}`, "file"]),
+);
 
-function bundle(file: string, ctx: BuildContext, seen: Set<string>): string {
-  let css: string;
-  try {
-    css = readFileSync(file, "utf8");
-  } catch {
-    ctx.errors.push(`${file}: stylesheet not found`);
-    return "";
-  }
-  css = css.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g, (all, q: string, url: string) => {
-    if (/^(data:|[a-z]+:|\/|#)/i.test(url) || !FILE_TYPES.test(url.split(/[?#]/)[0])) return all;
-    const path = resolve(dirname(file), url.split(/[?#]/)[0]);
-    let data: Buffer;
-    try {
-      data = readFileSync(path);
-    } catch {
-      ctx.errors.push(`${file}: url(${url}): file not found`);
-      return all;
-    }
-    const rel = fingerprinted(`assets/${basename(path)}`, data, ctx.config.fingerprint);
-    ctx.emit(rel, data);
-    return `url(${q}/${rel}${q})`;
-  });
-  return css.replace(/@import\s+(?:url\(\s*)?(["'])([^"']+)\1\s*\)?\s*([^;]*);/g, (all, _q: string, spec: string, condition: string) => {
-    if (/^([a-z]+:|\/)/i.test(spec)) return all;
-    const path = resolve(dirname(file), spec);
-    if (seen.has(path)) return "";
-    seen.add(path);
-    const inner = bundle(path, ctx, seen);
-    const layer = condition.match(/^layer\(([^)]*)\)\s*(.*)$/);
-    const media = (layer ? layer[2] : condition).trim();
-    let wrapped = layer ? `@layer ${layer[1]} {\n${inner}\n}` : condition.trim() === "layer" ? `@layer {\n${inner}\n}` : inner;
-    if (media) wrapped = `@media ${media} {\n${wrapped}\n}`;
-    return wrapped;
-  });
-}
+const importPath = (root: string, file: string): string => {
+  const r = slashes(relative(root, file));
+  return /^[a-z]:/i.test(r) || r.startsWith("../") ? r : `./${r}`;
+};
 
-export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset | undefined> {
+// Bundles one stylesheet: each @import goes inline, and each file that url()
+// names gets a hashed name under assets/.
+async function bundleCss(ctx: BuildContext, name: string, files: string[], extra: string): Promise<Asset | undefined> {
   const { config, errors } = ctx;
-  const files = [...(config.css.base ? [BASE_CSS] : []), ...(config.css.entry ? [config.css.entry] : [])];
-  if (!files.length && !extra) return undefined;
-  const esbuild = await engine<typeof Esbuild>("esbuild", config.css.engine, config.root, "css.engine \"esbuild\"", errors);
-  let css: string;
+  const entry = files.map((f) => `@import ${JSON.stringify(importPath(config.root, f))};`).join("\n") + "\n" + extra;
+  let css = "";
   let map: string | undefined;
-  if (esbuild) {
-    const relPath = (f: string) => {
-      const r = slashes(relative(config.root, f));
-      return /^[a-z]:/i.test(r) || r.startsWith("../") ? r : `./${r}`;
-    };
-    const entry = files.map((f) => `@import ${JSON.stringify(relPath(f))};`).join("\n") + "\n" + extra;
-    try {
-      const result = await esbuild.build({
-        // The entry has no file. Its name must not match a real file, or an
-        // @import of that file looks like a cycle.
-        stdin: { contents: entry, resolveDir: config.root, sourcefile: "<ggass entry>.css", loader: "css" },
-        bundle: true,
-        write: false,
-        minify: config.css.minify,
-        sourcemap: config.css.sourcemap ? "external" : false,
-        outfile: join(config.out, "assets", "style.css"),
-        // esbuild's `external: ["/*"]` also matches resolved file paths, so a
-        // plugin keeps root-relative URLs as written.
-        plugins: [{ name: "root-relative", setup: (b) => void b.onResolve({ filter: /^\// }, (args) => (args.kind === "entry-point" ? undefined : { path: args.path, external: true })) }],
-        loader: { ".woff2": "file", ".woff": "file", ".ttf": "file", ".otf": "file", ".png": "file", ".jpg": "file", ".jpeg": "file", ".gif": "file", ".svg": "file", ".webp": "file", ".avif": "file" },
-        assetNames: config.fingerprint ? "[name]-[hash]" : "[name]",
-        target: config.css.targets,
-        logLevel: "silent",
-      });
-      css = "";
-      for (const f of result.outputFiles) {
-        const rel = slashes(relative(config.out, f.path));
-        if (rel === "assets/style.css") css = f.text;
-        else if (rel === "assets/style.css.map") map = f.text;
-        else ctx.emit(rel, f.contents);
-      }
-    } catch (e) {
-      for (const m of esbuildErrors(e, config.root)) errors.push(`CSS: ${m}`);
-      return undefined;
+  try {
+    const result = await esbuild.build({
+      // The entry has no file. Its name must not match a real file, or an
+      // @import of that file looks like a cycle.
+      stdin: { contents: entry, resolveDir: config.root, sourcefile: `<ggass ${name}>.css`, loader: "css" },
+      bundle: true,
+      write: false,
+      minify: config.css.minify,
+      sourcemap: config.css.sourcemap ? "external" : false,
+      outfile: join(config.out, "assets", `${name}.css`),
+      plugins: [rootRelative],
+      loader: FILE_LOADERS,
+      assetNames: config.fingerprint ? "[name]-[hash]" : "[name]",
+      target: config.css.targets,
+      logLevel: "silent",
+    });
+    for (const f of result.outputFiles) {
+      const rel = slashes(relative(config.out, f.path));
+      if (rel === `assets/${name}.css`) css = f.text;
+      else if (rel === `assets/${name}.css.map`) map = f.text;
+      else ctx.emit(rel, f.contents);
     }
-  } else {
-    const seen = new Set<string>(files);
-    css = files.map((f) => bundle(f, ctx, seen)).join("\n") + "\n" + extra;
-    if (config.css.minify) css = minifyCss(css);
+  } catch (e) {
+    for (const m of esbuildErrors(e, config.root)) errors.push(`CSS: ${m}`);
+    return undefined;
   }
-  const rel = fingerprinted("assets/style.css", css, config.fingerprint);
+  const rel = fingerprinted(`assets/${name}.css`, css, config.fingerprint);
   if (map) {
     css += `\n/*# sourceMappingURL=${basename(rel)}.map */\n`;
     ctx.emit(`${rel}.map`, map);
@@ -169,3 +93,14 @@ export async function buildCss(ctx: BuildContext, extra: string): Promise<Asset 
   ctx.emit(rel, css);
   return { url: `/${rel}`, integrity: integrity(css) };
 }
+
+export function buildCss(ctx: BuildContext, extra: string): Promise<Asset | undefined> {
+  const { config } = ctx;
+  const files = [...(config.css.base ? [BASE_CSS] : []), ...(config.css.entry ? [config.css.entry] : [])];
+  if (!files.length && !extra) return Promise.resolve(undefined);
+  return bundleCss(ctx, "style", files, extra);
+}
+
+// The stylesheet of one component. A page links it only if it uses the
+// component.
+export const buildComponentCss = (ctx: BuildContext, tag: string, file: string): Promise<Asset | undefined> => bundleCss(ctx, tag, [file], "");

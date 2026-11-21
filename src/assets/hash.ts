@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export const integrity = (data: string | Uint8Array): string => `sha384-${createHash("sha384").update(data).digest("base64")}`;
@@ -45,14 +45,28 @@ export const fingerprinted = (path: string, data: string | Uint8Array, on: boole
 
 // Concurrent calls for one file share a job. Finished jobs leave the map, so it
 // holds no data and no failures.
-const running = new Map<string, Promise<Buffer>>();
+const running = new Map<string, Promise<Buffer | undefined>>();
 export function cached(dir: string, key: string, make: () => Promise<Uint8Array>): Promise<Buffer> {
+  return job(dir, key, make, true) as Promise<Buffer>;
+}
+
+// Like cached(), but gives the path of the file in the cache, and reads it
+// only to make it.
+export async function cachedFile(dir: string, key: string, make: () => Promise<Uint8Array>): Promise<string> {
+  await job(dir, key, make, false);
+  return join(dir, key);
+}
+
+function job(dir: string, key: string, make: () => Promise<Uint8Array>, read: boolean): Promise<Buffer | undefined> {
   const path = join(dir, key);
-  let job = running.get(path);
+  const id = `${path}\0${read}`;
+  let job = running.get(id);
   if (!job) {
     job = (async () => {
       try {
-        return readFileSync(path);
+        if (read) return readFileSync(path);
+        if (existsSync(path)) return undefined;
+        throw new Error("not cached");
       } catch {
         const data = Buffer.from(await make());
         mkdirSync(dirname(path), { recursive: true });
@@ -60,8 +74,8 @@ export function cached(dir: string, key: string, make: () => Promise<Uint8Array>
         return data;
       }
     })();
-    running.set(path, job);
-    const done = () => running.delete(path);
+    running.set(id, job);
+    const done = () => running.delete(id);
     job.then(done, done);
   }
   return job;

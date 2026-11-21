@@ -1,0 +1,102 @@
+/*
+ * pop-link.css - the styles of <pop-link> and of the <pop-window> that it opens
+ * Copyright (C) 2026 GGASS project
+ *
+ * This file is part of GGASS.
+ *
+ * GGASS is free software: you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 2.1 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the Apache License, Version 2.0.
+ *
+ * or both in parallel, as here.
+ *
+ * GGASS is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License and the Apache License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License and the Apache License along with GGASS, in the LICENSES
+ * directory; if not, see <https://www.gnu.org/licenses/> and
+ * <https://www.apache.org/licenses/LICENSE-2.0>.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/* The layer order of ggass.css, in case a page has no base stylesheet. */
+@layer base, layout, content, components, popups, presentation, print;
+
+@layer popups {
+  /* The user agent hides a closed popover, so display is set only when open. */
+  pop-window {
+    position: fixed; inset: auto; margin: 0; padding: 0;
+    width: min(36rem, 92vw); max-height: 70vh; overflow: hidden;
+    color: var(--fg); background: var(--pop-bg); border: 1px solid var(--rule);
+    box-shadow: 0 8px 28px rgb(0 0 0 / .22); font-size: .88rem; line-height: 1.5;
+    &:popover-open { display: flex; flex-direction: column; }
+    &.pinned { border-color: var(--link); }
+    &.anchored {
+      position-area: bottom span-right;
+      position-try: most-height flip-inline, flip-block, flip-block flip-inline;
+      margin-block: 6px;
+      max-height: min(70vh, 100% - 12px);
+    }
+  }
+  .popbar {
+    display: flex; align-items: center; gap: .4rem; padding: .25rem .5rem;
+    border-bottom: 1px solid var(--rule); background: var(--bg);
+    cursor: move; user-select: none; touch-action: none;
+    button { font: .75rem var(--mono); background: none; color: var(--muted); border: 1px solid var(--control); cursor: pointer; padding: 0 .35rem; min-block-size: 24px; min-inline-size: 24px; }
+  }
+  .poptitle { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .popopen { font: .75rem var(--mono); min-block-size: 24px; display: inline-grid; place-items: center; }
+  .popbody {
+    overflow: auto; padding: .4rem .8rem .8rem;
+    container-type: inline-size;
+    h1 { font-size: 1.15rem; margin: .3rem 0; }
+    h2 { font-size: 1.05rem; }
+    .figs figure.photo { max-width: 12rem; }
+  }
+}
+
+@layer presentation {
+  pop-window.sheet {
+    position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80dvh;
+    border-width: 1px 0 0; border-radius: 12px 12px 0 0; font-size: .95rem;
+    padding-bottom: env(safe-area-inset-bottom);
+    &::backdrop { background: rgb(0 0 0 / .35); }
+    .popbar { cursor: default; padding: .3rem .4rem .3rem .8rem; }
+    .popbar button, .popopen { min-block-size: 44px; min-inline-size: 44px; display: inline-grid; place-items: center; font-size: .95rem; }
+  }
+  @media (pointer: coarse) {
+    .popbar button { min-block-size: 44px; min-inline-size: 44px; }
+  }
+
+  /* Screen readers skip this label (the / "" part of content). */
+  :root[data-shortcuts="on"] pop-link:has(> a:focus-visible) {
+    position: relative;
+    &::after {
+      content: "p: preview" / "";
+      position: absolute; left: 0; top: 100%; z-index: 4; margin-top: 4px; padding: 0 .35rem;
+      font: .75rem/1.6 var(--sans); white-space: nowrap; color: var(--bg); background: var(--fg);
+    }
+  }
+
+  @media (forced-colors: active) {
+    pop-window { border: 2px solid CanvasText; }
+    :root[data-shortcuts="on"] pop-link:has(> a:focus-visible)::after { border: 1px solid CanvasText; }
+  }
+}
+
+@layer print {
+  @media print {
+    pop-window { display: none !important; }
+  }
+}

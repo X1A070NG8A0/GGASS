@@ -1,4 +1,4 @@
-// check-list.ts - the <check-list> element
+// list-filter.client.ts - the <list-filter> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.
@@ -28,42 +28,38 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-const PREFIX = "done:";
+class ListFilter extends HTMLElement {
+  status?: HTMLElement;
 
-function stored(key: string): boolean {
-  try {
-    return localStorage.getItem(PREFIX + key) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function store(key: string, done: boolean): void {
-  try {
-    if (done) localStorage.setItem(PREFIX + key, "1");
-    else localStorage.removeItem(PREFIX + key);
-  } catch {
-    // Private mode or blocked storage: the ticks do not persist.
-  }
-}
-
-class CheckList extends HTMLElement {
   connectedCallback(): void {
-    for (const box of this.querySelectorAll("input[data-done-key]")) {
-      if (box instanceof HTMLInputElement) box.checked = stored(box.dataset.doneKey ?? "");
+    this.addEventListener("input", this);
+    if (!this.status) {
+      this.status = document.createElement("p");
+      this.status.className = "vh";
+      this.status.setAttribute("role", "status");
+      this.append(this.status);
     }
-    this.addEventListener("change", this);
   }
 
   disconnectedCallback(): void {
-    this.removeEventListener("change", this);
+    this.removeEventListener("input", this);
   }
 
-  handleEvent(e: Event): void {
-    const box = e.target;
-    if (!(box instanceof HTMLInputElement) || !box.dataset.doneKey) return;
-    store(box.dataset.doneKey, box.checked);
+  handleEvent(): void {
+    const input = this.querySelector("input");
+    const selector = this.getAttribute("items");
+    if (!input || !selector) return;
+    const terms = input.value.toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0, total = 0;
+    for (const el of document.querySelectorAll(selector)) {
+      if (!(el instanceof HTMLElement)) continue;
+      const hay = (el.dataset.search ?? el.textContent).toLowerCase();
+      el.hidden = !terms.every((t) => hay.includes(t));
+      total++;
+      if (!el.hidden) shown++;
+    }
+    if (this.status) this.status.textContent = terms.length ? `${shown} of ${total} shown` : "";
   }
 }
 
-customElements.define("check-list", CheckList);
+customElements.define("list-filter", ListFilter);

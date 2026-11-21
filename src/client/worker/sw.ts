@@ -72,6 +72,7 @@ async function cacheFirst(request: Request): Promise<Response> {
 
 sw.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
-  if (e.request.method !== "GET" || url.origin !== location.origin) return;
+  // /__ggass/ is the reload channel of the local server.
+  if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/__ggass/")) return;
   e.respondWith(url.pathname.startsWith("/assets/") ? cacheFirst(e.request) : pageFirst(e.request));
 });

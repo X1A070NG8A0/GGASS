@@ -29,17 +29,35 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { after, before, describe, test } from "node:test";
-import { build, integrity, textOf, type BuildResult } from "ggass";
+import { build, Builder, integrity, textOf, type BuildResult, type SiteConfig } from "ggass";
 import { site } from "./fixture/build.ts";
 
 const temp = mkdtempSync(join(tmpdir(), "ggass-test-"));
 after(() => rmSync(temp, { recursive: true, force: true }));
 
 const read = (out: string, rel: string) => readFileSync(join(out, rel), "utf8");
+
+// A small site in a new folder. The keys of `files` are paths in the site.
+// Each site has a home page, because the search page links to it.
+let sites = 0;
+function makeSite(files: Record<string, string>, settings: Partial<SiteConfig> = {}): SiteConfig & { root: string; out: string } {
+  const root = join(temp, `site-${++sites}`);
+  for (const [path, text] of Object.entries({ "pagedef/index.yaml": "title: Home\nbody: <p>Home</p>\n", ...files })) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  return { name: "Test", images: false, ...settings, root, out: join(root, "dist") };
+}
+
+async function errorsOf(files: Record<string, string>): Promise<string[]> {
+  const result = await build(makeSite(files), { check: true, quiet: true });
+  process.exitCode = 0;
+  return result.errors;
+}
 
 const importMap = (html: string) => {
   const json = /<script type="importmap">(.*?)<\/script>/.exec(html)?.[1];
@@ -60,7 +78,7 @@ function checkIntegrity(out: string, html: string): number {
   return n;
 }
 
-describe("build with esbuild and sharp", () => {
+describe("build of the test site", () => {
   const out = join(temp, "full");
   let result: BuildResult;
   before(async () => {
@@ -82,16 +100,21 @@ describe("build with esbuild and sharp", () => {
     const text = read(out, css);
     assert.ok(text.includes("figure.wide{"), "the site stylesheet and its @import are inlined");
     assert.ok(!text.includes("@import"), "no @import is left");
+    assert.ok(!text.includes(".popbar"), "the component styles are not in the main stylesheet");
     assert.ok(text.includes(`sourceMappingURL=${css.split("/")[1]}.map`));
     const map = JSON.parse(read(out, `${css}.map`)) as { sources: string[] };
     assert.ok(map.sources.some((s) => s.endsWith("parts/figures.css")));
   });
 
-  test("loads only the modules of the elements on a page", () => {
+  test("loads only the modules and stylesheets of the elements on a page", () => {
     const html = read(out, "article.html");
     const preloads = [...html.matchAll(/rel="modulepreload" href="\/assets\/([a-z-]+)-/g)].map((m) => m[1]);
     for (const tag of ["side-note", "page-toc", "pop-link", "photo-zoom"]) assert.ok(preloads.includes(tag), `preload ${tag}`);
     for (const tag of ["check-list", "section-tabs", "site-search"]) assert.ok(!preloads.includes(tag), `no preload for ${tag}`);
+    const sheets = [...html.matchAll(/rel="stylesheet" href="\/assets\/([a-z-]+)-[0-9a-f]{10}\.css"/g)].map((m) => m[1]);
+    assert.deepEqual(sheets.sort(), ["key-shortcuts", "photo-zoom", "pop-link", "share-button", "side-note", "style"]);
+    const map = importMap(html);
+    assert.match(map.imports["ggass/check-list.css"], /^\/assets\/check-list-[0-9a-f]{10}\.css$/, "a popup can load the stylesheet of another element");
   });
 
   test("turns side notes into references, margin notes and print notes", () => {
@@ -125,6 +148,23 @@ describe("build with esbuild and sharp", () => {
     assert.match(pictures[1], /width="1600" height="1000"/, "the original");
     assert.ok(!/<img[^>]*data-image/.test(html), "the operations attribute is gone");
     for (const m of html.matchAll(/\/assets\/img\/[^" ,]+/g)) assert.ok(existsSync(join(out, m[0].slice(1))), m[0]);
+    assert.ok(existsSync(join(out, "photos", "sample.jpg")), "static/ is copied");
+  });
+
+  test("renders the pagedefs with their templates", () => {
+    const home = read(out, "index.html");
+    assert.ok(home.includes('<h1 class="brandmark">Example site</h1>'), "the site template home.tsx");
+    assert.equal([...home.matchAll(/<li><a href="[^"]+">[^<]+<\/a><span>/g)].length, 3, "one card for each entry of data/cards.yaml");
+    const tab = read(out, "elements/tab-two.html");
+    assert.ok(tab.includes('<p class="crumb"><a href="/elements/">Elements</a></p><h1>Second tab</h1>'), "a child page with the template that its parent names");
+    const index = JSON.parse(read(out, "search-index.json")) as { k: string; t: string; u: string }[];
+    assert.deepEqual(index.map((e) => [e.u, e.k]), [
+      ["/article.html", "Essay"],
+      ["/elements/index.html", "Reference"],
+      ["/elements/tab-two.html", "Reference"],
+      ["/index.html", "Page"],
+    ], "the kind from _defaults.yaml, and no entry for the search page");
+    assert.ok(read(out, "search.html").includes('<site-search><label class="field" for="search-q">'));
   });
 
   test("writes /frag/ copies only for popup targets", () => {
@@ -140,35 +180,15 @@ describe("build with esbuild and sharp", () => {
   });
 });
 
-describe("build without the optional packages", () => {
-  const out = join(temp, "builtin");
+describe("build without responsive images", () => {
+  const out = join(temp, "plain-images");
   let result: BuildResult;
   before(async () => {
-    result = await build({ ...site, out, css: { ...site.css, engine: "builtin" }, js: { ...site.js, engine: "builtin" }, images: { responsive: false } }, { quiet: true });
+    result = await build({ ...site, out, images: { responsive: false } }, { quiet: true });
   });
 
   test("succeeds", () => {
     assert.deepEqual(result.errors, []);
-  });
-
-  test("every integrity value matches its file", () => {
-    assert.ok(checkIntegrity(out, read(out, "article.html")) > 5);
-  });
-
-  test("bundles and minifies the stylesheet with the built-in code", () => {
-    const css = read(out, result.outputs.find((o) => o.endsWith(".css"))!);
-    assert.ok(css.includes("figure.wide{"));
-    assert.ok(!css.includes("@import"));
-    assert.ok(!/\/\*(?!!)/.test(css), "no comments are left");
-  });
-
-  test("strips types and points imports at the hashed files", () => {
-    const rel = result.outputs.find((o) => /^assets\/pop-link-[0-9a-f]{10}\.js$/.test(o))!;
-    const code = read(out, rel);
-    assert.match(code, /from "\/assets\/pop-window-[0-9a-f]{10}\.js"/);
-    assert.ok(!code.includes(": string"), "no type annotations are left");
-    const window = result.outputs.find((o) => o.startsWith("assets/pop-window-"))!;
-    assert.ok(read(out, "article.html").includes(`rel="modulepreload" href="/${window}"`), "the static import of pop-link is preloaded");
   });
 
   test("still processes data-image operations and gives sizes", () => {
@@ -179,42 +199,147 @@ describe("build without the optional packages", () => {
   });
 });
 
-describe("site components", () => {
-  const source = `class TestWidget extends HTMLElement { connectedCallback(): void { this.textContent = "ok"; } }\ncustomElements.define("test-widget", TestWidget);\n`;
-  for (const engine of ["esbuild", "builtin"] as const) {
-    test(`go in the import map, with ${engine}`, async () => {
-      const dir = join(temp, `component-${engine}`);
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, "test-widget.ts"), source);
-      const out = join(temp, `out-component-${engine}`);
-      const result = await build({ ...site, out, images: false, offline: false, js: { engine, components: { "test-widget": join(dir, "test-widget.ts") } } }, { quiet: true });
-      assert.deepEqual(result.errors, []);
-      const map = importMap(read(out, "index.html"));
-      const url = map.imports["ggass/test-widget"];
-      assert.ok(url, "the component is in the import map");
-      assert.ok(map.integrity[url], "with its integrity value");
-      assert.ok(!read(out, url.slice(1)).includes(": void"), "the types are gone");
-    });
-  }
-});
-
-describe("pages", () => {
-  test("text keeps an escaped entity escaped", () => {
-    assert.equal(textOf("a &amp;lt;b&amp;gt; &lt;c&gt; &amp;amp;"), "a &lt;b&gt; <c> &amp;");
+describe("pagedefs", () => {
+  test("a number in the YAML is text, and a map is an error that names its line", async () => {
+    const errors = await errorsOf({ "pagedef/year.yaml": "title: 2026\nkind: 7\nbody: <p>2026</p>\n", "pagedef/map.yaml": "body: <p>Map</p>\ntitle: { a: 1 }\n" });
+    assert.deepEqual(errors, ["pagedef/map.yaml:2: title: must be text"]);
   });
 
-  test("a number in the YAML header is text, and a map is an error", async () => {
-    const dir = join(temp, "yaml");
-    mkdirSync(join(dir, "content"), { recursive: true });
-    writeFileSync(join(dir, "content", "year.html"), "<!--\ntitle: 2026\nkind: 7\n-->\n<h1>2026</h1>\n");
-    writeFileSync(join(dir, "content", "map.html"), "<!--\ntitle: { a: 1 }\n-->\n<h1>Map</h1>\n");
-    const result = await build({ name: "YAML", root: dir, images: false }, { check: true, quiet: true });
-    assert.deepEqual(result.errors, ["content/map.html: no title (it must be text)"]);
+  test("a key that the template does not list is an error", async () => {
+    const errors = await errorsOf({ "pagedef/a.yaml": "title: A\ntilte: B\nbody: <p>A</p>\n" });
+    assert.deepEqual(errors, ["pagedef/a.yaml:2: tilte: unknown key. The keys here are: title, kind, template, pages, body."]);
+  });
+
+  test("HTML that does not close is an error", async () => {
+    const errors = await errorsOf({ "pagedef/a.yaml": "title: A\nbody: |\n  <p>One <b>two</p>\n" });
+    assert.deepEqual(errors, ["pagedef/a.yaml:2: body: <b> is not closed before </p>"]);
+  });
+
+  test("a .yml file and a missing template are errors", async () => {
+    const errors = await errorsOf({ "pagedef/a.yml": "title: A\n", "pagedef/b.yaml": "title: B\ntemplate: nothing\n" });
+    assert.deepEqual(errors, ["pagedef/a.yml: GGASS reads .yaml files only. Rename it to .yaml.", 'pagedef/b.yaml:2: no template "nothing" in template/']);
+  });
+
+  test("_defaults.yaml applies in its folder and below, and the nearest one wins", async () => {
+    const s = makeSite({
+      "pagedef/_defaults.yaml": "kind: Outer\n",
+      "pagedef/sub/_defaults.yaml": "kind: Inner\n",
+      "pagedef/top.yaml": "title: Top\nbody: <p>Top</p>\n",
+      "pagedef/sub/deep/page.yaml": "title: Deep\nbody: <p>Deep</p>\n",
+      "pagedef/sub/own.yaml": "title: Own\nkind: Mine\nbody: <p>Own</p>\n",
+    });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    const index = JSON.parse(read(s.out, "search-index.json")) as { k: string; u: string }[];
+    assert.deepEqual(Object.fromEntries(index.map((e) => [e.u, e.k])), { "/index.html": "Outer", "/sub/deep/page.html": "Inner", "/sub/own.html": "Mine", "/top.html": "Outer" });
+  });
+
+  test("child pages get addresses under their parent and templates from its schema", async () => {
+    const s = makeSite({
+      "template/book.tsx": `import { children, template } from "ggass";\nexport default template({ fields: { pages: children("chapter") }, render: (p) => <h1>{p.title}</h1> });\n`,
+      "template/chapter.tsx": `import { template } from "ggass";\nexport default template({ fields: {}, render: (p, site) => <h1>{p.title} in {site.parent(p)?.title}</h1> });\n`,
+      "pagedef/book/index.yaml": "title: Book\ntemplate: book\npages:\n  - id: one\n    title: One\n  - id: 2\n    title: Two\n    template: page\n    body: <p>Two</p>\n",
+      "pagedef/guide.yaml": "title: Guide\ntemplate: book\npages:\n  - id: start\n    title: Start\n",
+    });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    assert.ok(read(s.out, "book/one.html").includes("<h1>One in Book</h1>"));
+    assert.ok(read(s.out, "book/2.html").includes("<h1>Two</h1>"), "a child can name its own template");
+    assert.ok(read(s.out, "guide/start.html").includes("<h1>Start in Guide</h1>"));
+  });
+
+  test("two pagedefs with one address are an error", async () => {
+    const errors = await errorsOf({ "pagedef/a.yaml": "title: A\nbody: <p>A</p>\npages:\n  - id: b\n    title: B\n    body: <p>B</p>\n", "pagedef/a/b.yaml": "title: B\nbody: <p>B</p>\n" });
+    assert.deepEqual(errors, ["pagedef/a/b.yaml: the address /a/b.html is taken already by pagedef/a.yaml:4"]);
+  });
+
+  test("a site template replaces the GGASS template of the same name", async () => {
+    const s = makeSite({
+      "template/page.tsx": `import { html, template } from "ggass";\nexport default template({ fields: { body: html() }, render: (p) => <article>{p.body}</article> });\n`,
+      "pagedef/index.yaml": "title: Home\nbody: <p>Hello & welcome</p>\n",
+    });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    assert.ok(read(s.out, "index.html").includes("<article><p>Hello & welcome</p></article>"), "an html() value goes in as it is");
+  });
+
+  test("text is escaped, and an error in a template names the page", async () => {
+    const s = makeSite({
+      "template/note.tsx": `import { template, text } from "ggass";\nexport default template({ fields: { note: text() }, render: (p) => { if (p.note === "fail") throw new Error("no"); return <p>{p.note}</p>; } });\n`,
+      "pagedef/a.yaml": "title: A\ntemplate: note\nnote: <b>bold</b> & more\n",
+    });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    assert.ok(read(s.out, "a.html").includes("<p>&lt;b&gt;bold&lt;/b&gt; &amp; more</p>"));
+    const errors = await errorsOf({ ...Object.fromEntries([["template/note.tsx", readFileSync(join(s.root, "template", "note.tsx"), "utf8")]]), "pagedef/b.yaml": "title: B\ntemplate: note\nnote: fail\n" });
+    assert.equal(errors.length, 1);
+    assert.match(errors[0], /^pagedef\/b\.yaml: template "note": no \(at .*note\.tsx:\d+:\d+/);
+  });
+});
+
+describe("components", () => {
+  test("a site component gets its module and stylesheet only on the pages that use it", async () => {
+    const s = makeSite({
+      "component/test-widget.client.ts": `class TestWidget extends HTMLElement { connectedCallback(): void { this.textContent = "ok"; } }\ncustomElements.define("test-widget", TestWidget);\n`,
+      "component/test-widget.css": "test-widget { color: red; }\n",
+      "pagedef/with.yaml": "title: With\nbody: <test-widget></test-widget>\n",
+      "pagedef/without.yaml": "title: Without\nbody: <p>None</p>\n",
+    });
+    const result = await build(s, { quiet: true });
+    assert.deepEqual(result.errors, []);
+    const map = importMap(read(s.out, "with.html"));
+    const url = map.imports["ggass/test-widget"];
+    assert.ok(url && map.integrity[url], "the component is in the import map, with its integrity value");
+    assert.ok(!read(s.out, url.slice(1)).includes(": void"), "the types are gone");
+    const css = map.imports["ggass/test-widget.css"];
+    assert.ok(read(s.out, "with.html").includes(`<link rel="stylesheet" href="${css}"`));
+    assert.ok(!read(s.out, "without.html").includes(`href="${css}"`));
+    assert.ok(read(s.out, "without.html").includes('"ggass/test-widget.css"'), "the import map still names it for popups");
+  });
+
+  test("a bad component file name is an error", async () => {
+    const result = await build(makeSite({ "component/widget.client.ts": "", "pagedef/a.yaml": "title: A\nbody: <p>A</p>\n" }), { quiet: true });
     process.exitCode = 0;
+    assert.deepEqual(result.errors, ['component/widget.client.ts: "widget" is not a custom element name (lower case, with a hyphen)']);
+  });
+});
+
+describe("watch builds", () => {
+  test("render again only the pages whose inputs changed, and write only changed files", async () => {
+    const s = makeSite({
+      "template/counted.tsx": `import { template } from "ggass";\nconst g = globalThis as { renders?: string[] };\nexport default template({ fields: {}, render: (p, site) => { (g.renders ??= []).push(p.url); return <p>{p.url === "/a.html" ? (site.data.words as string[]).join(" ") : "fixed"}</p>; } });\n`,
+      "data/words.yaml": "- one\n- two\n",
+      "pagedef/a.yaml": "title: A\ntemplate: counted\n",
+      "pagedef/b.yaml": "title: B\ntemplate: counted\n",
+    });
+    const g = globalThis as { renders?: string[] };
+    g.renders = [];
+    const builder = new Builder(s);
+    assert.deepEqual((await builder.build({ quiet: true })).errors, []);
+    assert.deepEqual(g.renders.sort(), ["/a.html", "/b.html"]);
+    const before = statSync(join(s.out, "b.html")).mtimeMs;
+
+    g.renders = [];
+    const same = await builder.build({ quiet: true });
+    assert.deepEqual(g.renders, [], "nothing renders again");
+    assert.equal(same.changed, 0, "nothing is written again");
+
+    writeFileSync(join(s.root, "data", "words.yaml"), "- three\n");
+    g.renders = [];
+    const next = await builder.build({ quiet: true });
+    assert.deepEqual(g.renders, ["/a.html"], "only the page that read data/words.yaml renders again");
+    assert.equal(next.changed, 2, "a.html and the search index");
+    assert.ok(read(s.out, "a.html").includes("<p>three</p>"));
+    assert.equal(statSync(join(s.out, "b.html")).mtimeMs, before);
+
+    rmSync(join(s.root, "pagedef", "b.yaml"));
+    const removed = await builder.build({ quiet: true });
+    assert.ok(!existsSync(join(s.out, "b.html")), "the output of a deleted page goes");
+    assert.equal(removed.changed, 2, "b.html goes, and the search index changes");
   });
 });
 
 describe("check", () => {
+  test("text keeps an escaped entity escaped", () => {
+    assert.equal(textOf("a &amp;lt;b&amp;gt; &lt;c&gt; &amp;amp;"), "a &lt;b&gt; <c> &amp;");
+  });
+
   test("reports a broken link and writes nothing", async () => {
     const out = join(temp, "check");
     const result = await build({ ...site, out, nav: [...(site.nav ?? []), { href: "/missing.html", label: "Missing" }] }, { check: true, quiet: true });

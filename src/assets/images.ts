@@ -32,10 +32,10 @@ import { readFileSync } from "node:fs";
 import { basename, extname, join, resolve } from "node:path";
 import type SharpType from "sharp";
 import { attrs, esc, tag } from "../html.ts";
-import type { BuildContext } from "../steps.ts";
+import type { BuildContext, Output, RenderedPage } from "../steps.ts";
 import { readDimensions } from "./dimensions.ts";
 import { readExif, type Exif } from "./exif.ts";
-import { cached, shortHash } from "./hash.ts";
+import { cached, cachedFile, shortHash } from "./hash.ts";
 import { optional, required } from "./optional.ts";
 
 type Sharp = typeof SharpType;
@@ -335,7 +335,9 @@ function pool(size: number) {
   };
 }
 
-export async function pageImages(ctx: BuildContext): Promise<void> {
+// onEmit hears each image file that a page uses, so that a watch build can
+// keep the result of a page that did not change.
+export async function pageImages(ctx: BuildContext, pages: Iterable<RenderedPage>, onEmit?: (page: RenderedPage, rel: string, data: Output) => void): Promise<void> {
   const { config, files, errors } = ctx;
   const settings = config.images;
   const contentFiles = new Set(files);
@@ -346,8 +348,10 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
   const cacheDir = join(config.cache, "images");
   const version = sharp ? JSON.stringify(sharp.versions) : "";
   const emitted = new Set<string>();
-  const emit = (name: string, data: Uint8Array) => {
+  let current: RenderedPage | undefined;
+  const emit = (name: string, data: Output) => {
     const rel = `assets/img/${name}`;
+    if (current) onEmit?.(current, rel, data);
     if (!emitted.has(rel)) {
       ctx.emit(rel, data);
       emitted.add(rel);
@@ -355,7 +359,8 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
     return `/${rel}`;
   };
 
-  for (const page of ctx.pages.values()) {
+  for (const page of pages) {
+    current = page;
     const found = [...page.body.matchAll(/<img\b[^>]*>/g)].map((m) => m[0]);
     if (!found.length) continue;
     const processImgTag = async (img: string, isFirst: boolean): Promise<string> => {
@@ -366,10 +371,10 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
       if (!a.has("decoding")) a.set("decoding", "async");
       if (!a.has("loading") && !isFirst) a.set("loading", "lazy");
       if (!src.startsWith("/") || src.startsWith("//") || !contentFiles.has(src.split(/[?#]/)[0])) {
-        if (spec) errors.push(`${page.file}: data-image on "${src}", which is not a file in the content folder`);
+        if (spec) errors.push(`${page.file}: data-image on "${src}", which is not a file in static/`);
         return tag("img", a);
       }
-      const path = join(config.content, src.split(/[?#]/)[0].slice(1));
+      const path = join(config.static, src.split(/[?#]/)[0].slice(1));
       const bytes = readFileSync(path);
       const raster = RASTER.test(src);
       let base: { data: Uint8Array; width: number; height: number; format: string } | undefined;
@@ -395,10 +400,10 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
         for (const o of ops.overlays ?? []) {
           if (!("image" in o) || typeof o.image !== "string") continue;
           if (!contentFiles.has(o.image)) {
-            errors.push(`${page.file}: data-image on "${src}": overlay "${o.image}" is not a file in the content folder`);
+            errors.push(`${page.file}: data-image on "${src}": overlay "${o.image}" is not a file in static/`);
             return tag("img", a);
           }
-          o.image = readFileSync(join(config.content, o.image.slice(1)));
+          o.image = readFileSync(join(config.static, o.image.slice(1)));
           overlayBytes += shortHash(o.image);
         }
         const key = shortHash(bytes, JSON.stringify({ ...ops, overlays: ops.overlays?.map((o) => ("image" in o ? { ...o, image: "" } : o)) }), overlayBytes, version);
@@ -408,7 +413,7 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
         const info = await sharp(data).metadata();
         base = { data, width: info.width ?? 0, height: info.height ?? 0, format: info.format ?? inputFormat };
         stem = `${basename(src, extname(src))}-${key}`;
-        emitProcessedOnly = () => void a.set("src", emit(`${stem}.${ext}`, data));
+        emitProcessedOnly = () => void a.set("src", emit(`${stem}.${ext}`, { file: join(cacheDir, `${key}.${ext}`) }));
       }
       const size = base ?? (raster && sharp ? displayedSize(await sharp(bytes).metadata()) : readDimensions(bytes));
       if (!size?.width || !size.height) {
@@ -436,10 +441,10 @@ export async function pageImages(ctx: BuildContext): Promise<void> {
           widths.map(async (w) => {
             const key = shortHash(source, String(w), format, String(settings.quality ?? ""), version);
             const ext = format === "jpeg" ? "jpg" : format;
-            const data = await limit(() =>
-              cached(cacheDir, `${key}.${ext}`, () => processImage(source, { resize: { width: w }, format: format as OutputFormat, quality: settings.quality }, { root: config.root }).then((r) => r.data)),
+            const file = await limit(() =>
+              cachedFile(cacheDir, `${key}.${ext}`, () => processImage(source, { resize: { width: w }, format: format as OutputFormat, quality: settings.quality }, { root: config.root }).then((r) => r.data)),
             );
-            return emit(`${stem}-${w}-${key}.${ext}`, data);
+            return emit(`${stem}-${w}-${key}.${ext}`, { file });
           }),
         );
       const srcset = (urls: string[]) => urls.map((u, i) => `${u} ${widths[i]}w`).join(", ");

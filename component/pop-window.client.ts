@@ -1,4 +1,4 @@
-// pop-window.ts - the <pop-window> element
+// pop-window.client.ts - the <pop-window> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

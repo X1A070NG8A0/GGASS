@@ -1,4 +1,4 @@
-// photo-zoom.ts - the <photo-zoom> element
+// check-list.client.ts - the <check-list> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.
@@ -28,35 +28,42 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-class PhotoZoom extends HTMLElement {
-  connectedCallback(): void {
-    this.addEventListener("click", this);
-  }
+const PREFIX = "done:";
 
-  disconnectedCallback(): void {
-    this.removeEventListener("click", this);
-  }
-
-  handleEvent(e: Event): void {
-    if (!(e instanceof MouseEvent) || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-    const a = e.target instanceof Element ? e.target.closest("a") : null;
-    const img = a?.querySelector("img");
-    if (!a || !img || !this.contains(a)) return;
-    e.preventDefault();
-    const dialog = document.createElement("dialog");
-    dialog.className = "zoom";
-    dialog.setAttribute("aria-label", `Enlarged photo: ${this.querySelector("figcaption")?.textContent ?? img.alt}`);
-    const big = document.createElement("img");
-    big.src = a.href;
-    big.alt = img.alt;
-    dialog.append(big);
-    const caption = this.querySelector("figcaption");
-    if (caption) dialog.append(caption.cloneNode(true));
-    dialog.addEventListener("click", () => dialog.close());
-    dialog.addEventListener("close", () => dialog.remove());
-    document.body.append(dialog);
-    dialog.showModal();
+function stored(key: string): boolean {
+  try {
+    return localStorage.getItem(PREFIX + key) === "1";
+  } catch {
+    return false;
   }
 }
 
-customElements.define("photo-zoom", PhotoZoom);
+function store(key: string, done: boolean): void {
+  try {
+    if (done) localStorage.setItem(PREFIX + key, "1");
+    else localStorage.removeItem(PREFIX + key);
+  } catch {
+    // Private mode or blocked storage: the ticks do not persist.
+  }
+}
+
+class CheckList extends HTMLElement {
+  connectedCallback(): void {
+    for (const box of this.querySelectorAll("input[data-done-key]")) {
+      if (box instanceof HTMLInputElement) box.checked = stored(box.dataset.doneKey ?? "");
+    }
+    this.addEventListener("change", this);
+  }
+
+  disconnectedCallback(): void {
+    this.removeEventListener("change", this);
+  }
+
+  handleEvent(e: Event): void {
+    const box = e.target;
+    if (!(box instanceof HTMLInputElement) || !box.dataset.doneKey) return;
+    store(box.dataset.doneKey, box.checked);
+  }
+}
+
+customElements.define("check-list", CheckList);

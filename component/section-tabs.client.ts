@@ -1,4 +1,4 @@
-// section-tabs.ts - the <section-tabs> element
+// section-tabs.client.ts - the <section-tabs> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

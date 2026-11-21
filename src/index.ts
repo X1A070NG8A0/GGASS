@@ -30,13 +30,15 @@
 
 import type { SiteConfig } from "./config.ts";
 
-export { build, type BuildOptions, type BuildResult } from "./build.ts";
-export { serve, type ServeOptions } from "./serve.ts";
-export { resolveConfig, type CssConfig, type Engine, type FontConfig, type ImageFormat, type ImagesConfig, type JsConfig, type NavItem, type ResolvedConfig, type SiteConfig } from "./config.ts";
-export type { Page, TocEntry } from "./content.ts";
-export type { Asset, BuildContext, Step } from "./steps.ts";
+export { build, Builder, type BuildOptions, type BuildResult } from "./build.ts";
+export { run } from "./run.ts";
+export { serve, type ServeOptions, type SiteServer } from "./serve.ts";
+export { resolveConfig, type CssConfig, type FontConfig, type ImageFormat, type ImagesConfig, type JsConfig, type NavItem, type ResolvedConfig, type SiteConfig } from "./config.ts";
+export { component, frame, template, type AnyPage, type Component, type ComponentProps, type Frame, type FrameInput, type Page, type PageMeta, type Site, type Template, type TemplateSpec, type TocEntry } from "./templates.ts";
+export { any, boolean, children, html, list, number, object, oneOf, optional, text, type Field, type Fields, type Infer, type InferFields } from "./schema.ts";
+export { Html, raw, type Child } from "./jsx-runtime.ts";
+export type { Asset, BuildContext, Output, RenderedPage, Step } from "./steps.ts";
 export { esc, textOf } from "./html.ts";
-export { minifyCss } from "./assets/css.ts";
 export { integrity } from "./assets/hash.ts";
 export { readDimensions, type Size } from "./assets/dimensions.ts";
 export { readExif, type Exif } from "./assets/exif.ts";

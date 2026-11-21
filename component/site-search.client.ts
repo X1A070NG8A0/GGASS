@@ -1,4 +1,4 @@
-// site-search.ts - the <site-search> element
+// site-search.client.ts - the <site-search> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

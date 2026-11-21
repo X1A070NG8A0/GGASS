@@ -1,0 +1,48 @@
+/*
+ * check-list.css - the styles of <check-list>
+ * Copyright (C) 2026 GGASS project
+ *
+ * This file is part of GGASS.
+ *
+ * GGASS is free software: you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 2.1 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the Apache License, Version 2.0.
+ *
+ * or both in parallel, as here.
+ *
+ * GGASS is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License and the Apache License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License and the Apache License along with GGASS, in the LICENSES
+ * directory; if not, see <https://www.gnu.org/licenses/> and
+ * <https://www.apache.org/licenses/LICENSE-2.0>.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/* The layer order of ggass.css, in case a page has no base stylesheet. */
+@layer base, layout, content, components, popups, presentation, print;
+
+@layer components {
+  .checklist {
+    list-style: none; padding-left: 0;
+    li { padding: .15rem .4rem; margin: .15rem 0; border-left: 4px solid var(--rule); }
+    label { cursor: pointer; }
+    input[type="checkbox"] { inline-size: 1.1rem; block-size: 1.1rem; vertical-align: -.2em; margin: 0 .15rem 0 0; }
+    /* Ticked: the muted color (about 5:1) and a line through, not opacity. */
+    li:has(input[data-done-key]:checked) {
+      color: var(--muted);
+      .name, .name a { color: var(--muted); text-decoration: line-through; }
+    }
+  }
+}

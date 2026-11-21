@@ -30,6 +30,22 @@
 
 const requestedTags = new Set<string>();
 
+// The import map also names the stylesheet of each component, as
+// "ggass/<tag>.css". The page links the stylesheets of its own components.
+// An element that arrives later, in a popup window, gets its stylesheet here.
+const map = JSON.parse(document.querySelector('script[type="importmap"]')?.textContent ?? "{}") as { imports?: Record<string, string>; integrity?: Record<string, string> };
+
+function loadStylesheet(tag: string): void {
+  const url = map.imports?.[`ggass/${tag}.css`];
+  if (!url || document.querySelector(`link[rel="stylesheet"][href="${url}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = url;
+  const sum = map.integrity?.[url];
+  if (sum) link.integrity = sum;
+  document.head.append(link);
+}
+
 function loadUndefined(root: Element | Document): void {
   const found = [...root.querySelectorAll(":not(:defined)")];
   if (root instanceof Element && root.matches(":not(:defined)")) found.push(root);
@@ -37,6 +53,7 @@ function loadUndefined(root: Element | Document): void {
     const tag = el.localName;
     if (requestedTags.has(tag)) continue;
     requestedTags.add(tag);
+    loadStylesheet(tag);
     let url: string;
     try {
       // The import map maps the name. A name that it does not map throws.

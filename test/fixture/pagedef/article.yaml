@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+title: A long article
+kind: Essay
+body: |
+  <p class="lede">This page shows the reading features: the table of contents, side notes, processed images, and the two presentations. Make the window wider and narrower to see both.<side-note>A side note. On a wide screen it is in the margin, beside its number. On a narrow screen a tap on the number opens it under the paragraph.</side-note></p>
+
+  <h2>The wide presentation</h2>
+  <p>On a screen of 72rem (about 1150 pixels) or more, the page has three columns. The table of contents stays in view on the left. The text is in the middle, at about 65 characters a line. Side notes are in the margin on the right.<side-note>The margin note uses CSS anchor positioning. The build gives each reference and its note the same anchor name.</side-note> Point to a <a href="/elements/" data-pop>popup link</a> with a mouse to see a preview of the page. Pin a window to keep it, and use <em>tile</em> to put the pinned windows side by side.</p>
+  <p>Two notes close together do not cover each other.<side-note>This note is close to the next one.</side-note> A small script moves the second note down.<side-note>And this note moves down, below the note before it.</side-note></p>
+
+  <h3>Keyboard shortcuts</h3>
+  <p>Press <kbd>?</kbd> for the list of shortcuts. <kbd>j</kbd> and <kbd>k</kbd> go to the next and previous section, <kbd>t</kbd> goes to the table of contents, and <kbd>/</kbd> goes to search. The list has a switch that turns the single keys off.</p>
+
+  <h2>The narrow presentation</h2>
+  <p>On a narrow screen, the page has one column. With a mouse, the table of contents is a box at the top of the page. On a phone or a tablet, the page tools are in a bar at the bottom, in reach of the thumb: the contents, search, share and top of the page. The contents open as a sheet from the bottom of the screen. A tap on a popup link opens the page in a sheet too, with a link to the full page.</p>
+  <p>The page uses the safe areas of phones with a notch, and dynamic viewport units, so the sheets fit when the browser bars show and hide.</p>
+
+  <h3>Offline reading</h3>
+  <p>This site turns on offline reading. A service worker keeps the stylesheet, the scripts and each page that you open.<side-note>The worker keeps pages that you open, not the whole site. A large site would fill the storage of a phone.</side-note></p>
+
+  <h2>Images</h2>
+  <p>The build gives each image its width and height, so the page does not move while images load. With sharp installed, it writes AVIF and WebP copies at several widths. A <code>data-image</code> attribute applies operations. This photo is cut to a square, turned to gray, and marked with text:</p>
+  <figure class="wide">
+  <img src="/photos/sample.jpg" alt="A drawn landscape: green hills under a blue sky with a pale sun" data-image="crop=1:1 position=east grayscale contrast=1.1 text='GGASS test' text-gravity=southeast">
+  <figcaption>The sample photo, processed at build time.</figcaption>
+  </figure>
+  <p>The same photo, with no operations, at its own aspect:</p>
+  <figure class="wide">
+  <photo-zoom><a href="/photos/sample.jpg"><img src="/photos/sample.jpg" alt="The same landscape in color"></a></photo-zoom>
+  <figcaption>A click opens the photo large.</figcaption>
+  </figure>
+
+  <h2>Print</h2>
+  <p>When you print this page, the navigation goes away, the notes print as a list at the end, and external links such as <a href="https://www.w3.org/TR/css-anchor-position-1/">the CSS anchor positioning draft</a> print their address.</p>

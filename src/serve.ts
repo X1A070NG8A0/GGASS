@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { createReadStream, existsSync, statSync } from "node:fs";
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { resolveConfig, type SiteConfig } from "./config.ts";
 
@@ -42,10 +42,18 @@ const TYPES: Record<string, string> = {
 
 export type ServeOptions = { port?: number; host?: string; quiet?: boolean };
 
-export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
-  const out = resolveConfig(site).out;
-  const port = options.port ?? Number(process.env.PORT ?? 4000);
-  const host = options.host ?? "127.0.0.1";
+// A server that can tell the open pages to reload.
+export type SiteServer = Server & { reload(): void };
+
+// The page script that listens for reloads. run(site) adds it with --serve.
+export const RELOAD_SCRIPT = `<script type="module">new EventSource("/__ggass/events").addEventListener("reload", () => location.reload());</script>`;
+
+export function serve(site: SiteConfig, options: ServeOptions = {}): SiteServer {
+  const config = resolveConfig(site);
+  const out = config.out;
+  const port = options.port ?? config.serve.port;
+  const host = options.host ?? config.serve.host;
+  const listeners = new Set<ServerResponse>();
 
   const resolve = (urlPath: string): string | undefined => {
     let rel: string;
@@ -60,7 +68,14 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
     return existsSync(file) ? file : undefined;
   };
 
-  return createServer((req, res) => {
+  const server = createServer((req, res) => {
+    if (req.url === "/__ggass/events") {
+      res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+      res.write("retry: 1000\n\n");
+      listeners.add(res);
+      req.on("close", () => listeners.delete(res));
+      return;
+    }
     const file = resolve(req.url ?? "/");
     if (!file) {
       res.writeHead(404, { "content-type": "text/plain" }).end("not found");
@@ -83,5 +98,10 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): Server {
     createReadStream(file).on("error", () => res.destroy()).pipe(res);
   }).listen(port, host, () => {
     if (!options.quiet) console.log(`Site on http://${host}:${port}`);
+  });
+  return Object.assign(server, {
+    reload: () => {
+      for (const res of listeners) res.write("event: reload\ndata: \n\n");
+    },
   });
 }

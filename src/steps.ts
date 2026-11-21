@@ -30,7 +30,7 @@
 
 import { sep } from "node:path";
 import type { ResolvedConfig } from "./config.ts";
-import type { Page } from "./content.ts";
+import type { AnyPage, TocEntry } from "./templates.ts";
 
 export const slashes = (path: string): string => path.split(sep).join("/");
 
@@ -38,20 +38,39 @@ export const formatMs = (n: number): string => (n < 1000 ? `${n.toFixed(0)} ms` 
 
 export type Asset = { url: string; integrity: string };
 
+// A page after its template rendered it. The build passes and the page
+// hooks of the steps change its body.
+export type RenderedPage = {
+  url: string;
+  title: string;
+  kind: string;
+  // The pagedef for messages, for example "pagedef/ops/air-filter.yaml".
+  file: string;
+  body: string;
+  toc: TocEntry[];
+  page: AnyPage;
+  // Left out of the search index.
+  unlisted?: boolean;
+};
+
+// The data of an output file, or a file on disk to copy.
+export type Output = string | Uint8Array | { file: string };
+
 export type BuildContext = {
   config: ResolvedConfig;
-  pages: Map<string, Page>;
+  pages: Map<string, RenderedPage>;
+  // The addresses of the files in static/.
   files: string[];
   errors: string[];
   warnings: string[];
-  outputs: Map<string, string | Uint8Array>;
+  outputs: Map<string, Output>;
   head: string[];
-  emit(path: string, data: string | Uint8Array): void;
+  emit(path: string, data: Output): void;
 };
 
 export type Step = {
   name: string;
-  page?(body: string, page: Page, ctx: BuildContext): string | Promise<string>;
+  page?(body: string, page: RenderedPage, ctx: BuildContext): string | Promise<string>;
   site?(ctx: BuildContext): void | Promise<void>;
 };
 

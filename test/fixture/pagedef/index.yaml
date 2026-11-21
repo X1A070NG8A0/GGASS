@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+title: Home
+template: home
+lede: This is the test site of GGASS. It shows each element and the reading features.

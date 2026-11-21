@@ -6,10 +6,11 @@ SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 # ggass
 
 GGASS is a static site generator that a site uses as a library. The site has
-its own build script, which imports GGASS and calls `build()`. You write each
-page as an HTML file with a YAML header. The build gives each page the shared
-layout, a table of contents and side notes. It checks the links, processes
-the CSS, JavaScript, images and fonts, and writes the site.
+its own build script, which imports GGASS and calls `run()`. You write each
+page as a YAML file, and a TSX template turns it into HTML. The build gives
+each page the shared frame, a table of contents and side notes. It checks
+the pages and the links, processes the CSS, JavaScript, images and fonts,
+and writes the site.
 
 The reader gets plain HTML. JavaScript adds conveniences, such as popup
 previews and folded notes, and never gates content.
@@ -25,40 +26,62 @@ installs GGASS as a linked folder. A `file:` dependency does this:
   "type": "module",
   "scripts": { "build": "node build.ts", "serve": "node build.ts --serve" },
   "dependencies": { "ggass": "file:../ggass" },
-  "devDependencies": { "esbuild": "0.28.2", "sharp": "0.35.5", "subset-font": "2.9.0" }
+  "devDependencies": { "sharp": "0.35.5", "subset-font": "2.9.0", "typescript": "5.9.3" }
 }
 ```
 
-The three development packages are optional. The section "Processing" says
-what each one adds.
+sharp and subset-font are optional. The section "Processing" says what each
+one adds. TypeScript does the type check of the templates. GGASS brings
+esbuild with it.
+
+A site has these folders. Only `pagedef/` is necessary.
+
+| Folder | What it holds |
+| --- | --- |
+| `pagedef/` | One YAML file for each page. See "Pages". |
+| `data/` | YAML files that the templates read. They make no pages. |
+| `template/` | TSX templates that turn a pagedef into HTML. See "Templates". |
+| `component/` | Custom elements: their HTML for templates, their styles and their browser code. See "Components". |
+| `static/` | Images and other files that the build copies as they are |
 
 The build script of the site, `build.ts`:
 
 ```ts
-import { build, defineSite, serve } from "ggass";
+import { defineSite, run } from "ggass";
 
-const site = defineSite({
+export const site = defineSite({
   name: "My site",
   nav: [{ href: "/guide/", label: "Guide" }, { href: "/search.html", label: "Search" }],
   css: { entry: "style.css" },
 });
 
-const result = await build(site, { check: process.argv.includes("--check") });
-if (result.ok && process.argv.includes("--serve")) serve(site);
+await run(site);
 ```
 
-You need Node 24 or later. Then:
+For the type check of the templates, the `tsconfig.json` of the site needs
+`"jsx": "react-jsx"` and `"jsxImportSource": "ggass"`.
+
+You need Node 24 or later. `run(site)` reads the command line:
 
 ```sh
-npm install
-npm run build      # check the links, then write dist/
-npm run serve      # build, then http://127.0.0.1:4000
+node build.ts            # check the pages and the links, then write dist/
+node build.ts --check    # check only, and write nothing
+node build.ts --serve    # build, serve on http://127.0.0.1:4000, and rebuild after each save
+node build.ts --watch    # build, and rebuild after each save, with no server
 ```
 
+`--port` and `--host` change the address of the server, and `--quiet`
+prints only the errors.
+
+With `--serve` or `--watch`, a save in the site folder starts a new build.
+That build renders again only the pages whose pagedef or template changed,
+or whose template read a data file or a page that changed. It writes only
+the files that changed. With `--serve`, the open page then reloads at once,
+at the same scroll position.
+
 If the build finds an error, it prints the error and sets the exit code
-to 1. `build()` also returns the errors, the warnings, the files that it
-wrote and the time of each step. With `{ check: true }`, it checks the pages
-and the links and writes nothing.
+to 1. A site can also call `build(site, { check })` itself. It returns the
+errors, the warnings, the files that it wrote, and the time of each step.
 
 ## Configuration
 
@@ -71,51 +94,148 @@ All settings except `name` are optional.
 | `nav` | `[]` | The header links, as `{ href, label }` |
 | `footer` | none | HTML at the bottom of each page |
 | `root` | the current folder | The site folder. The paths below are relative to it. |
-| `content` | `"content"` | The pages and their files |
-| `out` | `"dist"` | The output folder. The build deletes it first. |
-| `cache` | `node_modules/.cache/ggass` | Processed images and fonts, kept between builds |
+| `pagedef`, `data`, `template`, `component`, `static` | the same names | The folders of the site |
+| `out` | `"dist"` | The output folder. A full build deletes it first. |
+| `cache` | `node_modules/.cache/ggass` | Compiled templates, processed images and fonts, kept between builds |
 | `fingerprint` | `true` | A content hash in each asset name |
 | `toc` | `{ min: 3 }` | A table of contents on pages with at least `min` h2 and h3 headings. `false` turns it off. |
 | `shortcuts` | `true` | Single-key shortcuts for keyboard readers |
 | `share` | `true` | A share button in the bar at the bottom of phones and tablets |
 | `offline` | `false` | A service worker for offline reading |
-| `css` | | `entry`, `base`, `minify`, `sourcemap`, `targets`, `engine` |
-| `js` | | `components`, `minify`, `sourcemap`, `target`, `engine`, and the JSX settings |
+| `css` | | `entry`, `base`, `minify`, `sourcemap`, `targets` |
+| `js` | | `minify`, `sourcemap`, `target`, and the JSX settings for browser code |
 | `images` | | `responsive`, `widths`, `formats`, `quality`, `sizes`. `false` turns off image work. |
 | `fonts` | `[]` | Font files, as `{ family, src, weight, style, subset, preload }` |
 | `steps` | `[]` | More build steps. See "Build steps". |
+| `serve` | `{ port: 4000, host: "127.0.0.1" }` | The address of the server of `run(site)` |
 
 `src/config.ts` describes each setting.
 
 ## Pages
 
-Each page is an HTML file in the content folder that starts with a YAML
-header inside an HTML comment:
+Each page is a YAML file in `pagedef/`, a pagedef. Its path gives its
+address: `pagedef/guide/start.yaml` becomes `/guide/start.html`, and
+`pagedef/guide/index.yaml` becomes `/guide/`.
 
-```html
-<!--
+```yaml
 title: Getting started
 kind: Guide
--->
-<h1>Getting started</h1>
-<p>Body HTML.</p>
+body: |
+  <p>Install GGASS and build your first page.</p>
 ```
 
-The `<!--` and `-->` lines must be the first line and the line after the
-YAML. Because the header is a comment, a browser that opens the file
-directly does not show it.
+Each pagedef can have these keys:
 
-The `title` is necessary. It goes in the `<title>` element and in the search
-results. The `kind` is the label in the search results, and the default is
-"Page". The body holds its own `<h1>`.
+| Key | What it does |
+| --- | --- |
+| `title` | Necessary. It goes in the `<title>` element and in the search results. |
+| `kind` | The label in the search results. The default is "Page". |
+| `template` | The template file in `template/`, without its extension. The default is `page`. |
+| `pages` | Child pages. See "Child pages". |
 
-The path in the content folder is the address of the page:
-`content/guide/start.html` becomes `/guide/start.html`. The build copies the
-other files in the content folder, for example images, to the same path.
+The other keys are the fields of the template. Before it renders anything,
+the build checks each pagedef against the fields of its template. A key that
+the template does not list is an error. Each error names the YAML line, for
+example `pagedef/guide/start.yaml:4: body: <b> is not closed before </p>`.
 
-If a root-relative link (an `href`, `src` or `action` that starts with `/`)
-has no target, the build stops. A target is a page, a file from the content
-folder, a generated file or an asset.
+GGASS reads `.yaml` files only, and a `.yml` file is an error. A pagedef
+with the address `/search.html` replaces the search page of GGASS.
+
+### Defaults for a folder
+
+A `_defaults.yaml` file gives its keys to each pagedef in its folder and in
+the subfolders. The nearest `_defaults.yaml` wins key by key, and a key in
+the pagedef wins over all of them. For example,
+`pagedef/ops/_defaults.yaml` can hold `template: procedure` for each
+procedure in that folder. Child pages do not get these keys.
+
+### Child pages
+
+One pagedef can make more pages. Each item in its `pages` list is a child
+pagedef with an `id`. The address of a child is the address of its parent
+plus its id:
+
+- A child `part-2` of `pagedef/book/ch03.yaml` becomes `/book/ch03/part-2.html`.
+- A child `part-2` of `pagedef/book/index.yaml` becomes `/book/part-2.html`.
+
+A child can have children too. A child with no `template` key gets the
+template that the template of its parent names, for example with
+`pages: children("section")`. With no name there either, it gets `page`.
+
+## Templates
+
+A template is a TSX file in `template/`. Its default export is
+`template({ fields, render })`. `fields` lists the keys of the pagedef, and
+`render` returns the HTML of the page body:
+
+```tsx
+// template/procedure.tsx
+import { html, list, number, optional, template } from "ggass";
+
+export default template({
+  fields: {
+    summary: html(),
+    steps: list({ t: html(), figs: optional(list(number())) }),
+  },
+  render: (page, site) => (
+    <>
+      <h1>{page.title}</h1>
+      <p class="summary">{page.summary}</p>
+      <ol>{page.steps.map((s) => <li>{s.t}</li>)}</ol>
+    </>
+  ),
+});
+```
+
+| Field | The YAML value | The value in the template |
+| --- | --- | --- |
+| `text()` | Text. A number or true/false becomes text. | A string. TSX escapes it. |
+| `html()` | HTML text. The build checks that each tag closes. | HTML that goes in as it is |
+| `number()`, `boolean()` | A number, or true/false | A number or a boolean |
+| `oneOf("a", "b")` | One of the texts in the list | A string |
+| `list(field)` | A list. `list({ ... })` is a list of maps. | An array |
+| `object({ ... })` | A map with these keys | An object |
+| `optional(field)` | The key can be missing | The value, or `undefined` |
+| `any()` | Any value. The build does not check it. | The value |
+| `children("name")` | The `pages` key only | The child pages |
+
+The type of `page` comes from the fields, so the type check catches a wrong
+field name in the render function. `template({ fields, extra: true, render })`
+allows keys that the fields do not list.
+
+`site` gives the rest of the site to the template:
+
+| Value | What it gives |
+| --- | --- |
+| `site.config` | The resolved configuration |
+| `site.data.tools` | The value of `data/tools.yaml`. `data/forum/threads.yaml` is `site.data.forum.threads`. |
+| `site.page("/guide/")` | A page by its address |
+| `site.pages()` | All pages |
+| `site.children(page)`, `site.parent(page)` | The child pages and the parent of a page |
+
+The build freezes these values, so a template cannot change them. Each read
+goes into a record, and a watch build uses the record to find the pages to
+render again.
+
+A template returns only the body of the page. The build then gives IDs to
+the headings, makes the table of contents and the side notes, wraps the
+popup links, and processes the images. Last, it puts the body inside the
+frame template.
+
+esbuild compiles the templates into the build cache, together with their
+imports. Each top-level file in `template/` is a template, so put helper
+modules in a subfolder.
+
+### The templates of GGASS
+
+GGASS has three templates. A site template with the same name replaces the
+GGASS template.
+
+| Template | What it makes |
+| --- | --- |
+| `frame` | The HTML document around each page: the header, the nav, the table of contents, the footer and the page tools. Its default export is `frame((input, site) => ...)`, and `input` holds `page`, `toc`, `body` and `head`. |
+| `page` | A title and a `body: html()` field. It is the default template. |
+| `search` | The search page |
 
 ### What the build adds to a page
 
@@ -129,9 +249,13 @@ folder, a generated file or an asset.
 - Popup links. Put a bare `data-pop` attribute on a link to a page, for
   example `<a href="/guide/start.html" data-pop>`. The build wraps the link
   in `<pop-link>` and writes the body of the target page under `/frag/`.
-- Images. Each `<img>` of a file in the content folder gets its `width` and
-  `height`, `decoding="async"`, and `loading="lazy"` after the first image.
-  See "Processing".
+- Images. Each `<img>` of a file in `static/` gets its `width` and `height`,
+  `decoding="async"`, and `loading="lazy"` after the first image. See
+  "Processing".
+
+If a root-relative link (an `href`, `src` or `action` that starts with `/`)
+has no target, the build stops. A target is a page, a file in `static/`, a
+generated file or an asset.
 
 ## Presentations
 
@@ -165,41 +289,27 @@ the home page and each page that the reader opens.
 
 ## Processing
 
-The build processes the assets with its own TypeScript code. Three optional
-packages add more. A site installs only the ones that it needs, and the
-build finds them in the site folder.
+esbuild is a dependency of GGASS. It compiles the templates. It also
+bundles, minifies and hashes the CSS and the JavaScript, lowers new syntax
+for `css.targets` and `js.target`, and writes source maps. Each relative
+`@import` goes inline, and each file that `url()` names gets a hashed name.
+
+Two optional packages add more. A site installs only the ones that it needs,
+and the build finds them in the site folder.
 
 | | Without the package | With the package |
 | --- | --- | --- |
-| CSS | Bundles each relative `@import`, copies the files that `url()` names, minifies, hashes the name, gives the integrity value | esbuild also lowers new syntax for `css.targets` and writes a source map |
-| JavaScript | Strips the TypeScript types with Node, points each import at the hashed file, gives the integrity values | esbuild also bundles, removes unused code (tree shaking), minifies, reads JSX and writes source maps |
 | Images | Reads the width and height of PNG, GIF, JPEG, WebP and SVG files | sharp also applies `data-image` operations, writes AVIF and WebP copies at several widths with `srcset` and `sizes`, and reads metadata |
 | Fonts | Uses WOFF2 files whole | subset-font keeps only the characters that the site uses and converts other formats to WOFF2 |
 
-`css.engine` and `js.engine` choose the route: `"auto"` (the default) uses
-esbuild if it is installed, `"esbuild"` requires it, and `"builtin"` never
-uses it. `images.responsive` is `"auto"` by default, so the responsive copies
-start when sharp is installed.
+`images.responsive` is `"auto"` by default, so the responsive copies start
+when sharp is installed. A watch build keeps the font subsets of the first
+build.
 
 Each asset name holds a hash of its content, so a browser can keep the file
 for a long time. Each `<link>` and `<script>` carries its Subresource
 Integrity value (`integrity="sha384-..."`), and so does each module in the
 import map. A browser refuses a file whose content does not match.
-
-### JavaScript on a page
-
-Each custom element has its own module. A page loads one small loader. The
-loader looks for elements that are not defined yet and loads their modules
-through the import map of the page. The page also preloads the modules for
-the elements that it holds. So a page loads only the code that it uses, and
-an element that arrives later (in a popup window) still starts.
-
-The browser code of GGASS is TypeScript in `src/client/`. A site adds its own
-elements with `js.components`:
-
-```ts
-js: { components: { "word-count": "components/word-count.ts" } }
-```
 
 ### Image operations
 
@@ -227,26 +337,48 @@ orientation and GPS position.
 
 ### Build steps
 
-The build runs these steps in order: load, pages, images, links, fonts, css,
-js, layout, offline and write. It prints the time of each step. A site adds
-its own steps. A `page` hook runs after the images step, and a `site` hook
-runs after the js step:
+The build runs these steps in order: load, check, render, pages, images,
+links, fonts, css, js, layout, offline and write. It prints the time of each
+step. A site adds its own steps. A `page` hook runs after the images step,
+and a `site` hook runs after the js step:
 
 ```ts
 steps: [{
   name: "word count",
   page: (body, page, ctx) => body,            // runs for each page, returns the new body
-  site: (ctx) => ctx.emit("stats.json", "{}"), // runs once, before the layout
+  site: (ctx) => ctx.emit("stats.json", "{}"), // runs once, before the frame
 }]
 ```
 
 A step can add an error (`ctx.errors`), a warning (`ctx.warnings`), a file
 (`ctx.emit`) or HTML for the head of each page (`ctx.head`).
 
+## Components
+
+A component is a group of files with the same name in `component/`. Each
+file is optional:
+
+| File | What it holds |
+| --- | --- |
+| `word-count.tsx` | A component for templates, made with `component({ tag, props, render })`. A template imports it and writes `<WordCount ...>`. The type check tests the props. |
+| `word-count.css` | The styles of the component |
+| `word-count.client.ts` | The browser code, which defines the custom element `<word-count>` |
+
+The name must be a custom element name: lower case, with a hyphen. The
+elements of GGASS are in the same form in the `component/` folder of GGASS.
+A site component with the same name replaces the GGASS component, with all
+of its files.
+
+A page links the stylesheets and preloads the modules of the components in
+its HTML, and no others. A small loader module looks for elements that are
+not defined yet. It loads their modules and their stylesheets through the
+import map of the page. So an element that arrives later, in a popup window,
+still gets its code and its styles.
+
 ## Elements
 
 Each element wraps plain HTML that works without JavaScript.
-`test/fixture/content/elements/index.html` shows the markup of each one.
+`test/fixture/pagedef/elements/index.yaml` shows the markup of each one.
 
 | Element | With JavaScript | Without JavaScript |
 | --- | --- | --- |
@@ -262,7 +394,7 @@ Each element wraps plain HTML that works without JavaScript.
 | `<key-shortcuts>` | Single-key shortcuts and their list | Nothing |
 | `<share-button>` | Opens the share sheet of the device. Hidden where the browser has none. | Hidden |
 
-The layout holds `<page-toc>`, `<key-shortcuts>` and `<share-button>`. The
+The frame holds `<page-toc>`, `<key-shortcuts>` and `<share-button>`. The
 build puts `<pop-link>` around each `data-pop` link and turns each
 `<side-note>` into a reference and a note. You write the other elements in
 the pages.
@@ -309,15 +441,16 @@ the pages.
 
 ```sh
 npm install
-npm run check      # type-check the library, the browser code and the service worker
-npm test           # build the test site with and without the optional packages, and check it
+npm run check      # type-check the library, the templates, the browser code and the service worker
+npm test           # build the test site and small sites in temporary folders, and check them
 npm run fixture    # build the test site into dist/
-npm run serve      # build the test site, then serve it on http://127.0.0.1:4000
+npm run serve      # build the test site, serve it on http://127.0.0.1:4000, and rebuild after each save
 ```
 
-`test/fixture/` is the test site. It uses each element, side notes, image
-operations and a site stylesheet. The font test needs a
-TrueType font from the system, and it is skipped if it finds none.
+`test/fixture/` is the test site. It uses each element, a data file, child
+pages, `_defaults.yaml`, site templates, side notes, image operations and a
+site stylesheet. The font test needs a TrueType font from the system, and it
+is skipped if it finds none.
 
 ## Limits
 
@@ -326,8 +459,10 @@ TrueType font from the system, and it is skipped if it finds none.
   JavaScript files first.
 - The build finds tags with regular expressions. It does not parse a
   document tree.
-- The built-in JavaScript route does not bundle or minify, and it does not
-  read JSX.
+- A watch build does not load `build.ts` or the code of GGASS again. After
+  you change them, start the build again.
+- A watch build keeps the font subsets of the first build. A new character
+  can be missing from a font until the next full build.
 
 ## License
 

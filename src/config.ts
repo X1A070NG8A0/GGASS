@@ -34,10 +34,6 @@ import type { Step } from "./steps.ts";
 
 export type NavItem = { href: string; label: string };
 
-// "auto" uses esbuild if the site has it installed, and the built-in code if
-// not. "esbuild" fails if esbuild is not installed.
-export type Engine = "auto" | "esbuild" | "builtin";
-
 export type ImageFormat = "avif" | "webp" | "jpeg" | "png";
 
 export type FontConfig = {
@@ -57,15 +53,12 @@ export type CssConfig = {
   minify?: boolean;
   sourcemap?: boolean;
   targets?: string[];
-  engine?: Engine;
 };
 
 export type JsConfig = {
-  components?: Record<string, string>;
   minify?: boolean;
   sourcemap?: boolean;
   target?: string[];
-  engine?: Engine;
   jsx?: "automatic" | "transform";
   jsxImportSource?: string;
   jsxFactory?: string;
@@ -86,7 +79,12 @@ export type SiteConfig = {
   nav?: NavItem[];
   footer?: string;
   root?: string;
-  content?: string;
+  // The folders of the site, relative to the root.
+  pagedef?: string;
+  data?: string;
+  template?: string;
+  component?: string;
+  static?: string;
   // The output, relative to the root. The default is "dist". Each build
   // deletes it first.
   out?: string;
@@ -101,6 +99,8 @@ export type SiteConfig = {
   images?: ImagesConfig | false;
   fonts?: FontConfig[];
   steps?: Step[];
+  // The address of the server that run(site) starts with --serve.
+  serve?: { port?: number; host?: string };
 };
 
 export type ResolvedConfig = {
@@ -109,7 +109,11 @@ export type ResolvedConfig = {
   nav: NavItem[];
   footer: string;
   root: string;
-  content: string;
+  pagedef: string;
+  data: string;
+  template: string;
+  component: string;
+  static: string;
   out: string;
   cache: string;
   fingerprint: boolean;
@@ -122,6 +126,7 @@ export type ResolvedConfig = {
   images: (Required<Omit<ImagesConfig, "quality">> & { quality?: number }) | false;
   fonts: FontConfig[];
   steps: Step[];
+  serve: { port: number; host: string };
 };
 
 function nearestNodeModules(from: string): string | undefined {
@@ -142,7 +147,11 @@ export function resolveConfig(site: SiteConfig): ResolvedConfig {
     nav: site.nav ?? [],
     footer: site.footer ?? "",
     root,
-    content: at(site.content ?? "content"),
+    pagedef: at(site.pagedef ?? "pagedef"),
+    data: at(site.data ?? "data"),
+    template: at(site.template ?? "template"),
+    component: at(site.component ?? "component"),
+    static: at(site.static ?? "static"),
     out: at(site.out ?? "dist"),
     cache: site.cache ? at(site.cache) : nodeModulesDir ? join(nodeModulesDir, ".cache", "ggass") : join(root, ".cache", "ggass"),
     fingerprint: site.fingerprint ?? true,
@@ -156,14 +165,11 @@ export function resolveConfig(site: SiteConfig): ResolvedConfig {
       minify: site.css?.minify ?? true,
       sourcemap: site.css?.sourcemap ?? false,
       targets: site.css?.targets,
-      engine: site.css?.engine ?? "auto",
     },
     js: {
-      components: Object.fromEntries(Object.entries(site.js?.components ?? {}).map(([tag, file]) => [tag, at(file)])),
       minify: site.js?.minify ?? true,
       sourcemap: site.js?.sourcemap ?? false,
       target: site.js?.target ?? ["es2022"],
-      engine: site.js?.engine ?? "auto",
       jsx: site.js?.jsx,
       jsxImportSource: site.js?.jsxImportSource,
       jsxFactory: site.js?.jsxFactory,
@@ -178,5 +184,6 @@ export function resolveConfig(site: SiteConfig): ResolvedConfig {
     },
     fonts: site.fonts ?? [],
     steps: site.steps ?? [],
+    serve: { port: site.serve?.port ?? Number(process.env.PORT ?? 4000), host: site.serve?.host ?? "127.0.0.1" },
   };
 }

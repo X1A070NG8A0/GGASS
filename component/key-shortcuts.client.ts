@@ -1,4 +1,4 @@
-// key-shortcuts.ts - the <key-shortcuts> element
+// key-shortcuts.client.ts - the <key-shortcuts> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

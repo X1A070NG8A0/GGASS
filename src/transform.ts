@@ -28,7 +28,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-import type { Page } from "./content.ts";
+import type { RenderedPage as Page } from "./steps.ts";
 import { attrs, slug, tag, target, textOf } from "./html.ts";
 
 export function headings(page: Page): void {

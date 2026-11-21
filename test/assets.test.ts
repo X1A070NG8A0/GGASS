@@ -32,25 +32,10 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, test } from "node:test";
-import { imageMetadata, minifyCss, parseImageSpec, processImage, readDimensions, readExif } from "ggass";
+import { imageMetadata, parseImageSpec, processImage, readDimensions, readExif } from "ggass";
 import sharp from "sharp";
 
-const PHOTO = join(import.meta.dirname, "fixture", "content", "photos", "sample.jpg");
-
-describe("minifyCss", () => {
-  test("removes comments and white space where it has no meaning", () => {
-    assert.equal(minifyCss("a  >  b ,\n c {\n  color: red ;\n  margin: 0 auto;\n}\n"), "a>b,c{color:red;margin:0 auto}");
-    // A space before a colon can be a descendant selector, so it stays.
-    assert.equal(minifyCss("a { color : red }"), "a{color :red}");
-  });
-  test("keeps strings, calc() and descendant pseudo-classes", () => {
-    const css = `a::before { content: "a , b ; c" } .x { width: calc(100% - 2rem) } .a :is(.b) { color: blue }`;
-    assert.equal(minifyCss(css), `a::before{content:"a , b ; c"}.x{width:calc(100% - 2rem)}.a :is(.b){color:blue}`);
-  });
-  test("keeps /*! comments", () => {
-    assert.equal(minifyCss("/*! license */ /* gone */ a { b: c }"), "/*! license */a{b:c}");
-  });
-});
+const PHOTO = join(import.meta.dirname, "fixture", "static", "photos", "sample.jpg");
 
 describe("parseImageSpec", () => {
   test("reads operations, flags and quoted values", () => {
@@ -159,7 +144,7 @@ describe("fonts", { skip: FONT ? false : "no system font found" }, () => {
       assert.ok(woff2, "a fingerprinted WOFF2 file");
       const size = readFileSync(join(out, woff2)).length;
       assert.ok(size < readFileSync(FONT!).length / 4, `the subset (${size} bytes) is much smaller than the font`);
-      const css = readFileSync(join(out, result.outputs.find((o) => o.endsWith(".css"))!), "utf8");
+      const css = readFileSync(join(out, result.outputs.find((o) => o.startsWith("assets/style-") && o.endsWith(".css"))!), "utf8");
       assert.ok(css.includes(`@font-face{font-family:Test Sans;src:url(/${woff2}) format("woff2");font-weight:400`), "the @font-face rule, minified by esbuild");
       assert.ok(readFileSync(join(out, "index.html"), "utf8").includes(`<link rel="preload" href="/${woff2}" as="font" type="font/woff2" crossorigin>`));
     } finally {

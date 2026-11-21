@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { join } from "node:path";
-import { build, defineSite, serve } from "ggass";
+import { defineSite, run } from "ggass";
 
 export const site = defineSite({
   name: "Example site",
@@ -46,7 +46,4 @@ export const site = defineSite({
   offline: true,
 });
 
-if (import.meta.main) {
-  const result = await build(site, { check: process.argv.includes("--check") });
-  if (result.ok && process.argv.includes("--serve")) serve(site);
-}
+if (import.meta.main) await run(site);

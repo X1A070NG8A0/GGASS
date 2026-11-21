@@ -1,4 +1,4 @@
-// side-note.ts - the <side-note> element
+// side-note.client.ts - the <side-note> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

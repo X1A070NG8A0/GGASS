@@ -1,0 +1,59 @@
+/*
+ * step-sequence.css - the styles of <step-sequence>
+ * Copyright (C) 2026 GGASS project
+ *
+ * This file is part of GGASS.
+ *
+ * GGASS is free software: you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 2.1 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the Apache License, Version 2.0.
+ *
+ * or both in parallel, as here.
+ *
+ * GGASS is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License and the Apache License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License and the Apache License along with GGASS, in the LICENSES
+ * directory; if not, see <https://www.gnu.org/licenses/> and
+ * <https://www.apache.org/licenses/LICENSE-2.0>.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/* The layer order of ggass.css, in case a page has no base stylesheet. */
+@layer base, layout, content, components, popups, presentation, print;
+
+@layer content {
+  step-sequence {
+    .seqbar { font-size: .85rem; margin: .4rem 0; }
+    .seqbar button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--control); padding: .15rem .6rem; min-block-size: 24px; cursor: pointer; }
+    .pt { cursor: default; }
+    .pt.on circle { fill: var(--accent); stroke: var(--accent); }
+    .pt.on text { fill: var(--bg); }
+    .legend li.on { background: var(--second-bg); outline: 1px solid var(--second); }
+  }
+}
+
+@layer presentation {
+  @media (forced-colors: active) {
+    step-sequence .pt.on circle { forced-color-adjust: none; fill: Highlight; stroke: Highlight; }
+    step-sequence .pt.on text { forced-color-adjust: none; fill: HighlightText; }
+    step-sequence .legend li.on { outline: 2px solid Highlight; }
+  }
+}
+
+@layer print {
+  @media print {
+    .seqbar { display: none !important; }
+  }
+}

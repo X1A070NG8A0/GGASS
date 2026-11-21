@@ -1,4 +1,4 @@
-// step-sequence.ts - the <step-sequence> element
+// step-sequence.client.ts - the <step-sequence> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

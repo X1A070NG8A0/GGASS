@@ -1,0 +1,53 @@
+/*
+ * key-shortcuts.css - the styles of <key-shortcuts> and its dialog
+ * Copyright (C) 2026 GGASS project
+ *
+ * This file is part of GGASS.
+ *
+ * GGASS is free software: you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 2.1 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the Apache License, Version 2.0.
+ *
+ * or both in parallel, as here.
+ *
+ * GGASS is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License and the Apache License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License and the Apache License along with GGASS, in the LICENSES
+ * directory; if not, see <https://www.gnu.org/licenses/> and
+ * <https://www.apache.org/licenses/LICENSE-2.0>.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/* The layer order of ggass.css, in case a page has no base stylesheet. */
+@layer base, layout, content, components, popups, presentation, print;
+
+@layer presentation {
+  dialog.shortcuts {
+    max-width: min(28rem, 92vw); padding: 1rem 1.2rem; color: var(--fg); background: var(--pop-bg); border: 1px solid var(--rule);
+    h2 { margin-top: 0; border: 0; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; }
+    dd { margin: 0; }
+    kbd { border: 1px solid var(--rule); border-radius: 4px; padding: 0 .35rem; }
+    label { display: block; margin: 1rem 0; }
+    button { font: inherit; padding: .3rem .9rem; }
+    &::backdrop { background: rgb(0 0 0 / .4); }
+  }
+}
+
+@layer print {
+  @media print {
+    key-shortcuts { display: none !important; }
+  }
+}

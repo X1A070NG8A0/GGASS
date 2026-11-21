@@ -1,0 +1,79 @@
+/*
+ * side-note.css - the styles of <side-note>, its references and the print notes
+ * Copyright (C) 2026 GGASS project
+ *
+ * This file is part of GGASS.
+ *
+ * GGASS is free software: you can redistribute it and/or modify it
+ * under the terms of either:
+ *
+ *   * the GNU Lesser General Public License as published by the Free
+ *     Software Foundation; either version 2.1 of the License, or (at your
+ *     option) any later version.
+ *
+ * or
+ *
+ *   * the Apache License, Version 2.0.
+ *
+ * or both in parallel, as here.
+ *
+ * GGASS is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+ * License and the Apache License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License and the Apache License along with GGASS, in the LICENSES
+ * directory; if not, see <https://www.gnu.org/licenses/> and
+ * <https://www.apache.org/licenses/LICENSE-2.0>.
+ *
+ * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+ */
+
+/* The layer order of ggass.css, in case a page has no base stylesheet. */
+@layer base, layout, content, components, popups, presentation, print;
+
+@layer presentation {
+  .note-ref {
+    font-size: .75em; line-height: 0; vertical-align: super; padding-inline: .12em;
+    text-decoration: none; font-variant-numeric: tabular-nums;
+  }
+  side-note {
+    margin: .4rem 0 .9rem; padding: .1rem 0 .1rem .8rem; border-left: 2px solid var(--rule);
+    font-size: .88rem; line-height: 1.5;
+    .note-num { font-weight: 700; text-decoration: none; margin-right: .15rem; }
+    /* until-found keeps the box, so its margin, padding and border must go. */
+    &[hidden="until-found"] { margin: 0; padding: 0; border: 0; }
+    &[hidden]:not([hidden="until-found"]) { display: none; }
+    &.flash { animation: note-flash 1.4s ease-out; }
+  }
+  @keyframes note-flash { from { background: var(--second-bg); } to { background: transparent; } }
+  .endnotes { display: none; }
+
+  /* An invisible area around each small note number takes the tap. */
+  @media (pointer: coarse) {
+    .note-ref, .note-num { position: relative; }
+    .note-ref::after, .note-num::after { content: ""; position: absolute; inset: -.8em -.7em; }
+  }
+
+  @media (forced-colors: active) {
+    side-note.flash { outline: 2px solid Highlight; }
+  }
+
+  @media (width >= 72rem) {
+    .frame > main side-note {
+      position: absolute; inset-inline-start: calc(100% + var(--gap)); inline-size: var(--margin-width);
+      margin: 0; padding: 0 0 0 .6rem;
+    }
+    @supports (anchor-name: --a) {
+      .frame > main side-note { top: anchor(top); position-visibility: always; }
+    }
+  }
+}
+
+@layer print {
+  @media print {
+    side-note { display: none !important; }
+    .endnotes { display: block; margin-top: 2rem; font-size: 9.5pt; }
+  }
+}

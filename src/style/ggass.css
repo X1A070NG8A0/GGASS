@@ -30,7 +30,9 @@
  * SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
  */
 
-/* A later layer wins over an earlier one, whatever the specificity. */
+/* A later layer wins over an earlier one, whatever the specificity. Each
+   component has its own stylesheet in component/, which a page links only if
+   it uses the component. */
 @layer base, layout, content, components, popups, presentation, print;
 
 /* No transitions between pages or tabs: they make some readers sick. */
@@ -147,7 +149,6 @@
   }
   .crumb { color: var(--muted); font-size: .85rem; }
   .pager { text-align: center; }
-  site-search .kind { color: var(--muted); }
 }
 
 @layer content {
@@ -178,106 +179,12 @@
     figcaption { font-size: .88rem; }
     .legend { padding-left: 1.2rem; margin: .4rem 0; }
   }
-  step-sequence {
-    .seqbar { font-size: .85rem; margin: .4rem 0; }
-    .seqbar button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--control); padding: .15rem .6rem; min-block-size: 24px; cursor: pointer; }
-    .pt { cursor: default; }
-    .pt.on circle { fill: var(--accent); stroke: var(--accent); }
-    .pt.on text { fill: var(--bg); }
-    .legend li.on { background: var(--second-bg); outline: 1px solid var(--second); }
-  }
-  photo-zoom a { cursor: zoom-in; }
-  dialog.zoom {
-    padding: .5rem; border: 1px solid var(--rule); background: var(--pop-bg); color: var(--fg);
-    max-width: 96vw; max-height: 96vh; cursor: zoom-out;
-    img { display: block; width: min(90vw, 56rem); max-height: 86vh; object-fit: contain; height: auto; }
-    figcaption { font: .8rem var(--mono); color: var(--muted); margin-top: .3rem; }
-    &::backdrop { background: rgb(0 0 0 / .6); }
-  }
   @container (width < 38rem) {
     figure.diagram { grid-template-columns: 1fr; }
   }
 }
 
-@layer components {
-  .checklist {
-    list-style: none; padding-left: 0;
-    li { padding: .15rem .4rem; margin: .15rem 0; border-left: 4px solid var(--rule); }
-    label { cursor: pointer; }
-    input[type="checkbox"] { inline-size: 1.1rem; block-size: 1.1rem; vertical-align: -.2em; margin: 0 .15rem 0 0; }
-    /* Ticked: the muted color (about 5:1) and a line through, not opacity. */
-    li:has(input[data-done-key]:checked) {
-      color: var(--muted);
-      .name, .name a { color: var(--muted); text-decoration: line-through; }
-    }
-  }
-
-  section-tabs nav {
-    display: flex; flex-wrap: wrap; gap: .25rem .2rem; align-items: flex-end;
-    a {
-      position: relative; top: 1px; font-size: .85rem; color: var(--fg); text-decoration: none;
-      background: var(--second-bg); border: 1px solid var(--rule); border-bottom: none;
-      border-radius: 6px 6px 0 0; padding: .25rem .7rem;
-      &:hover { border-color: var(--second); }
-      &[aria-current] { background: var(--bg); border-color: var(--rule); font-weight: 700; padding-block: .4rem .3rem; }
-    }
-  }
-  .tab-page {
-    border: 1px solid var(--rule); border-radius: 0 6px 6px 6px; background: var(--bg); padding: .2rem 1rem .6rem;
-    h3 { margin: .6rem 0 .4rem; }
-  }
-}
-
-@layer popups {
-  /* The user agent hides a closed popover, so display is set only when open. */
-  pop-window {
-    position: fixed; inset: auto; margin: 0; padding: 0;
-    width: min(36rem, 92vw); max-height: 70vh; overflow: hidden;
-    color: var(--fg); background: var(--pop-bg); border: 1px solid var(--rule);
-    box-shadow: 0 8px 28px rgb(0 0 0 / .22); font-size: .88rem; line-height: 1.5;
-    &:popover-open { display: flex; flex-direction: column; }
-    &.pinned { border-color: var(--link); }
-    &.anchored {
-      position-area: bottom span-right;
-      position-try: most-height flip-inline, flip-block, flip-block flip-inline;
-      margin-block: 6px;
-      max-height: min(70vh, 100% - 12px);
-    }
-  }
-  .popbar {
-    display: flex; align-items: center; gap: .4rem; padding: .25rem .5rem;
-    border-bottom: 1px solid var(--rule); background: var(--bg);
-    cursor: move; user-select: none; touch-action: none;
-    button { font: .75rem var(--mono); background: none; color: var(--muted); border: 1px solid var(--control); cursor: pointer; padding: 0 .35rem; min-block-size: 24px; min-inline-size: 24px; }
-  }
-  .poptitle { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .popopen { font: .75rem var(--mono); min-block-size: 24px; display: inline-grid; place-items: center; }
-  .popbody {
-    overflow: auto; padding: .4rem .8rem .8rem;
-    container-type: inline-size;
-    h1 { font-size: 1.15rem; margin: .3rem 0; }
-    h2 { font-size: 1.05rem; }
-    .figs figure.photo { max-width: 12rem; }
-  }
-}
-
 @layer presentation {
-  .note-ref {
-    font-size: .75em; line-height: 0; vertical-align: super; padding-inline: .12em;
-    text-decoration: none; font-variant-numeric: tabular-nums;
-  }
-  side-note {
-    margin: .4rem 0 .9rem; padding: .1rem 0 .1rem .8rem; border-left: 2px solid var(--rule);
-    font-size: .88rem; line-height: 1.5;
-    .note-num { font-weight: 700; text-decoration: none; margin-right: .15rem; }
-    /* until-found keeps the box, so its margin, padding and border must go. */
-    &[hidden="until-found"] { margin: 0; padding: 0; border: 0; }
-    &[hidden]:not([hidden="until-found"]) { display: none; }
-    &.flash { animation: note-flash 1.4s ease-out; }
-  }
-  @keyframes note-flash { from { background: var(--second-bg); } to { background: transparent; } }
-  .endnotes { display: none; }
-
   nav.toc {
     font-size: .9rem;
     .toc-title { font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border: 0; margin: 0 0 .4rem; padding: 0; }
@@ -322,54 +229,16 @@
       &::backdrop { background: rgb(0 0 0 / .35); }
     }
   }
-  pop-window.sheet {
-    position: fixed; inset: auto 0 0 0; margin: 0; width: 100%; max-width: none; max-height: 80dvh;
-    border-width: 1px 0 0; border-radius: 12px 12px 0 0; font-size: .95rem;
-    padding-bottom: env(safe-area-inset-bottom);
-    &::backdrop { background: rgb(0 0 0 / .35); }
-    .popbar { cursor: default; padding: .3rem .4rem .3rem .8rem; }
-    .popbar button, .popopen { min-block-size: 44px; min-inline-size: 44px; display: inline-grid; place-items: center; font-size: .95rem; }
-  }
-  /* An invisible area around each small note number takes the tap. */
   @media (pointer: coarse) {
-    .popbar button { min-block-size: 44px; min-inline-size: 44px; }
-    header.site nav a, section-tabs nav a { padding-block: .45rem; }
-    .note-ref, .note-num { position: relative; }
-    .note-ref::after, .note-num::after { content: ""; position: absolute; inset: -.8em -.7em; }
-  }
-
-  /* Screen readers skip this label (the / "" part of content). */
-  :root[data-shortcuts="on"] pop-link:has(> a:focus-visible) {
-    position: relative;
-    &::after {
-      content: "p: preview" / "";
-      position: absolute; left: 0; top: 100%; z-index: 4; margin-top: 4px; padding: 0 .35rem;
-      font: .75rem/1.6 var(--sans); white-space: nowrap; color: var(--bg); background: var(--fg);
-    }
+    header.site nav a { padding-block: .45rem; }
   }
 
   /* These themes remove shadows and backgrounds, so popups keep a border and
      each current item keeps a mark that is not only a color. */
   @media (forced-colors: active) {
     :focus-visible { outline-color: Highlight; }
-    pop-window, dialog, nav.toc[popover]:popover-open { border: 2px solid CanvasText; }
-    step-sequence .pt.on circle { forced-color-adjust: none; fill: Highlight; stroke: Highlight; }
-    step-sequence .pt.on text { forced-color-adjust: none; fill: HighlightText; }
-    step-sequence .legend li.on { outline: 2px solid Highlight; }
-    nav.toc a[aria-current], section-tabs nav a[aria-current] { text-decoration: underline 2px; }
-    side-note.flash { outline: 2px solid Highlight; }
-    :root[data-shortcuts="on"] pop-link:has(> a:focus-visible)::after { border: 1px solid CanvasText; }
-  }
-
-  dialog.shortcuts {
-    max-width: min(28rem, 92vw); padding: 1rem 1.2rem; color: var(--fg); background: var(--pop-bg); border: 1px solid var(--rule);
-    h2 { margin-top: 0; border: 0; }
-    dl { display: grid; grid-template-columns: auto 1fr; gap: .3rem 1rem; }
-    dd { margin: 0; }
-    kbd { border: 1px solid var(--rule); border-radius: 4px; padding: 0 .35rem; }
-    label { display: block; margin: 1rem 0; }
-    button { font: inherit; padding: .3rem .9rem; }
-    &::backdrop { background: rgb(0 0 0 / .4); }
+    dialog, nav.toc[popover]:popover-open { border: 2px solid CanvasText; }
+    nav.toc a[aria-current] { text-decoration: underline 2px; }
   }
 
   @media (width >= 72rem) {
@@ -385,13 +254,6 @@
       margin: 1.6rem 0 0; padding: 0; color: inherit; background: none; border: 0; border-radius: 0; box-shadow: none;
       a { padding-block: .2rem; }
     }
-    .frame > main side-note {
-      position: absolute; inset-inline-start: calc(100% + var(--gap)); inline-size: var(--margin-width);
-      margin: 0; padding: 0 0 0 .6rem;
-    }
-    @supports (anchor-name: --a) {
-      .frame > main side-note { top: anchor(top); position-visibility: always; }
-    }
   }
 }
 
@@ -400,13 +262,11 @@
     @page { margin: 2cm 2.2cm; }
     :root { color-scheme: light; }
     body { font-size: 11pt; padding: 0; }
-    header.site nav, nav.toc, .dock, .skip, key-shortcuts, pop-window, list-filter, site-search, share-button, .seqbar { display: none !important; }
+    header.site nav, nav.toc, .dock, .skip { display: none !important; }
     header.site, .frame, footer.site { max-width: none; }
     .frame { display: block; }
     a { color: inherit; }
     main a[href^="http"]::after { content: " <" attr(href) ">"; font-size: .85em; overflow-wrap: anywhere; }
-    side-note { display: none !important; }
-    .endnotes { display: block; margin-top: 2rem; font-size: 9.5pt; }
     h1, h2, h3 { break-after: avoid; }
     figure, table, pre, blockquote { break-inside: avoid; }
     p { orphans: 3; widows: 3; }

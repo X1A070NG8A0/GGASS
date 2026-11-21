@@ -1,4 +1,4 @@
-// page-toc.ts - the <page-toc> element
+// page-toc.client.ts - the <page-toc> element
 // Copyright (C) 2026 GGASS project
 //
 // This file is part of GGASS.

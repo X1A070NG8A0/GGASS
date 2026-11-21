@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 GGASS project
+# SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
+# The cards on the home page.
+- href: /article.html
+  label: A long article
+  text: The table of contents, side notes, processed images, and the wide and narrow presentations.
+- href: /elements/
+  label: Elements
+  text: Each custom element of the site, with the HTML that it wraps.
+- href: /search.html
+  label: Search
+  text: Search the text of all pages.
