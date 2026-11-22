@@ -75,6 +75,10 @@ export type ImagesConfig = {
 
 export type SiteConfig = {
   name: string;
+  // The path of the site on its host: "/my-site" for a site at
+  // https://example.com/my-site/. Pages, templates and nav links still name
+  // addresses from "/", and the build puts the base path in front of them.
+  basePath?: string;
   lang?: string;
   nav?: NavItem[];
   footer?: string;
@@ -105,6 +109,8 @@ export type SiteConfig = {
 
 export type ResolvedConfig = {
   name: string;
+  // "" or a path such as "/my-site", with no slash at the end.
+  basePath: string;
   lang: string;
   nav: NavItem[];
   footer: string;
@@ -141,8 +147,10 @@ export function resolveConfig(site: SiteConfig): ResolvedConfig {
   const at = (p: string) => resolve(root, p);
   const nodeModulesDir = nearestNodeModules(root);
   const images = site.images === false ? false : site.images ?? {};
+  const basePath = (site.basePath ?? "").trim().replace(/\/+$/, "");
   return {
     name: site.name,
+    basePath: basePath && !basePath.startsWith("/") ? `/${basePath}` : basePath,
     lang: site.lang ?? "en",
     nav: site.nav ?? [],
     footer: site.footer ?? "",

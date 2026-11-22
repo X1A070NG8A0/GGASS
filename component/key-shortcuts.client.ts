@@ -102,7 +102,8 @@ class KeyShortcuts extends HTMLElement {
       "/": () => {
         const input = document.querySelector<HTMLInputElement>("site-search input");
         if (input) input.focus();
-        else location.assign("/search.html");
+        // This module is in assets/, one folder below the site root.
+        else location.assign(new URL("../search.html", import.meta.url));
       },
       j: () => jumpTo(visibleHeadings().find((h) => h.getBoundingClientRect().top > 8)),
       k: () => jumpTo(visibleHeadings().findLast((h) => h.getBoundingClientRect().top < -8)),

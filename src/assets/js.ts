@@ -102,10 +102,12 @@ export async function buildJs(ctx: BuildContext, components: Map<string, Compone
   return result;
 }
 
-// At /sw.js, so that the scope of the worker is the whole site.
+// At /sw.js, so that the scope of the worker is the whole site. The
+// addresses to keep have the base path already.
 export async function buildServiceWorker(ctx: BuildContext, precache: string[]): Promise<void> {
   const { config } = ctx;
   const { code } = await esbuild.transform(readFileSync(WORKER, "utf8"), { loader: "ts", minify: config.js.minify, target: config.js.target });
   const version = `ggass-${shortHash(precache.join("\n"))}`;
-  ctx.emit("sw.js", `const PRECACHE = ${JSON.stringify(precache)};\nconst VERSION = ${JSON.stringify(version)};\n${code}`);
+  const constants = `const PRECACHE = ${JSON.stringify(precache)};\nconst VERSION = ${JSON.stringify(version)};\nconst BASE_PATH = ${JSON.stringify(config.basePath)};\n`;
+  ctx.emit("sw.js", constants + code);
 }

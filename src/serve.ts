@@ -68,15 +68,23 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): SiteServer 
     return existsSync(file) ? file : undefined;
   };
 
+  // With a base path, the server serves the site under it, as the host does.
+  const { basePath } = config;
   const server = createServer((req, res) => {
-    if (req.url === "/__ggass/events") {
+    const url = req.url ?? "/";
+    if (url === "/__ggass/events") {
       res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
       res.write("retry: 1000\n\n");
       listeners.add(res);
       req.on("close", () => listeners.delete(res));
       return;
     }
-    const file = resolve(req.url ?? "/");
+    const path = url.split("?")[0];
+    if (basePath && (path === "/" || path === basePath)) {
+      res.writeHead(302, { location: `${basePath}/` }).end();
+      return;
+    }
+    const file = !basePath ? resolve(url) : path.startsWith(`${basePath}/`) ? resolve(url.slice(basePath.length)) : undefined;
     if (!file) {
       res.writeHead(404, { "content-type": "text/plain" }).end("not found");
       return;
@@ -97,7 +105,7 @@ export function serve(site: SiteConfig, options: ServeOptions = {}): SiteServer 
     // Without this, a file deleted during the read crashes the server.
     createReadStream(file).on("error", () => res.destroy()).pipe(res);
   }).listen(port, host, () => {
-    if (!options.quiet) console.log(`Site on http://${host}:${port}`);
+    if (!options.quiet) console.log(`Site on http://${host}:${port}${basePath}/`);
   });
   return Object.assign(server, {
     reload: () => {

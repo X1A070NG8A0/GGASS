@@ -48,7 +48,8 @@ class SiteSearch extends HTMLElement {
     const { signal } = this.abort;
     input.addEventListener("input", () => this.run(input.value), { signal });
     try {
-      this.index = (await (await fetch("/search-index.json", { signal })).json()) as Entry[];
+      // This module is in assets/, one folder below the site root.
+      this.index = (await (await fetch(new URL("../search-index.json", import.meta.url), { signal })).json()) as Entry[];
     } catch {
       return; // Disconnected before the load, or no index.
     }

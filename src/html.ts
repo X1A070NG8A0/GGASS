@@ -37,6 +37,22 @@ export const target = (href: string): string => {
   return path.endsWith("/") ? `${path}index.html` : path;
 };
 
+const URL_ATTRIBUTE = /(\s(?:href|src|action|formaction|poster|cite|data|data-pop|data-sw)=["'])(\/(?!\/))/g;
+const SRCSET_ATTRIBUTE = /(\s(?:srcset|imagesrcset)=)(["'])(.*?)\2/g;
+
+// Puts the base path in front of each root address in the URL attributes,
+// so that href="/guide/" becomes href="/my-site/guide/".
+export function withBasePath(html: string, basePath: string): string {
+  if (!basePath) return html;
+  const add = (url: string) => (url.startsWith("/") && !url.startsWith("//") ? basePath + url : url);
+  return html
+    .replace(URL_ATTRIBUTE, (_, attribute: string, slash: string) => attribute + basePath + slash)
+    .replace(SRCSET_ATTRIBUTE, (_, attribute: string, quote: string, list: string) => {
+      const candidates = list.split(",").map((c) => c.replace(/^(\s*)(\S+)/, (_m, space: string, url: string) => space + add(url)));
+      return `${attribute}${quote}${candidates.join(",")}${quote}`;
+    });
+}
+
 // &amp; must be decoded last, or the text "&amp;lt;" becomes "<".
 export const textOf = (html: string): string =>
   html

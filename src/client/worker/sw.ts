@@ -28,10 +28,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
-// The build writes PRECACHE and VERSION before this code.
+// The build writes PRECACHE, VERSION and BASE_PATH before this code.
 
 declare const PRECACHE: string[];
 declare const VERSION: string;
+declare const BASE_PATH: string;
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
@@ -48,7 +49,7 @@ sw.addEventListener("activate", (e) => {
   );
 });
 
-const OFFLINE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline</title><p>You are offline, and this page is not saved on this device. <a href="/">Open the home page</a>.</p>`;
+const OFFLINE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Offline</title><p>You are offline, and this page is not saved on this device. <a href="${BASE_PATH}/">Open the home page</a>.</p>`;
 
 async function pageFirst(request: Request): Promise<Response> {
   const cache = await caches.open(VERSION);
@@ -74,5 +75,5 @@ sw.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   // /__ggass/ is the reload channel of the local server.
   if (e.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/__ggass/")) return;
-  e.respondWith(url.pathname.startsWith("/assets/") ? cacheFirst(e.request) : pageFirst(e.request));
+  e.respondWith(url.pathname.startsWith(`${BASE_PATH}/assets/`) ? cacheFirst(e.request) : pageFirst(e.request));
 });

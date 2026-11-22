@@ -38,7 +38,7 @@ export { component, frame, template, type AnyPage, type Component, type Componen
 export { any, boolean, children, html, list, number, object, oneOf, optional, text, type Field, type Fields, type Infer, type InferFields } from "./schema.ts";
 export { Html, raw, type Child } from "./jsx-runtime.ts";
 export type { Asset, BuildContext, Output, RenderedPage, Step } from "./steps.ts";
-export { esc, textOf } from "./html.ts";
+export { esc, textOf, withBasePath } from "./html.ts";
 export { integrity } from "./assets/hash.ts";
 export { readDimensions, type Size } from "./assets/dimensions.ts";
 export { readExif, type Exif } from "./assets/exif.ts";

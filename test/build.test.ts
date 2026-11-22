@@ -31,9 +31,11 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { once } from "node:events";
+import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { after, before, describe, test } from "node:test";
-import { build, Builder, integrity, textOf, type BuildResult, type SiteConfig } from "ggass";
+import { build, Builder, integrity, serve, textOf, withBasePath, type BuildResult, type SiteConfig } from "ggass";
 import { site } from "./fixture/build.ts";
 
 const temp = mkdtempSync(join(tmpdir(), "ggass-test-"));
@@ -65,14 +67,15 @@ const importMap = (html: string) => {
   return JSON.parse(json) as { imports: Record<string, string>; integrity: Record<string, string> };
 };
 
-function checkIntegrity(out: string, html: string): number {
+function checkIntegrity(out: string, html: string, basePath = ""): number {
   let n = 0;
-  for (const m of html.matchAll(/(?:href|src)="(\/assets\/[^"]+)" integrity="([^"]+)"/g)) {
+  for (const m of html.matchAll(new RegExp(`(?:href|src)="${basePath}(/assets/[^"]+)" integrity="([^"]+)"`, "g"))) {
     assert.equal(integrity(readFileSync(join(out, m[1].slice(1)))), m[2], `integrity of ${m[1]}`);
     n++;
   }
   for (const [url, sum] of Object.entries(importMap(html).integrity)) {
-    assert.equal(integrity(readFileSync(join(out, url.slice(1)))), sum, `import map integrity of ${url}`);
+    assert.ok(url.startsWith(`${basePath}/assets/`), `${url} is under ${basePath}/assets/`);
+    assert.equal(integrity(readFileSync(join(out, url.slice(basePath.length + 1)))), sum, `import map integrity of ${url}`);
     n++;
   }
   return n;
@@ -196,6 +199,96 @@ describe("build without responsive images", () => {
     assert.ok(!html.includes("<picture>"));
     assert.match(html, /<img src="\/assets\/img\/sample-[0-9a-f]{10}\.jpg"[^>]*width="1000" height="1000"/);
     assert.match(html, /<img src="\/photos\/sample\.jpg"[^>]*width="1600" height="1000"/);
+  });
+});
+
+describe("base path", () => {
+  const out = join(temp, "base-path");
+  const basePath = "/my-site";
+  const PAGES = ["index.html", "article.html", "elements/index.html", "search.html"];
+  let result: BuildResult;
+  before(async () => {
+    result = await build({ ...site, out, basePath: "my-site/" }, { quiet: true });
+  });
+
+  test("succeeds, and writes the files at the same places", () => {
+    assert.deepEqual(result.errors, []);
+    for (const rel of [...PAGES, "frag/article.html", "search-index.json", "sw.js"]) assert.ok(result.outputs.includes(rel), rel);
+  });
+
+  test("puts the base path in front of each root address in the HTML", () => {
+    for (const page of [...PAGES, "frag/article.html"]) {
+      const html = read(out, page);
+      for (const [, url] of html.matchAll(/\s(?:href|src|action|data-pop|data-sw)="(\/[^"]*)"/g)) assert.ok(url.startsWith(`${basePath}/`), `${page}: ${url}`);
+      for (const [, list] of html.matchAll(/\ssrcset="([^"]*)"/g))
+        for (const c of list.split(", ")) assert.ok(c.startsWith(`${basePath}/`), `${page}: srcset ${c}`);
+    }
+    const html = read(out, "article.html");
+    assert.ok(html.includes(`<a class="brand" href="${basePath}/">`));
+    assert.ok(html.includes(`href="${basePath}/elements/"`), "a nav link");
+    assert.ok(html.includes(`data-sw="${basePath}/sw.js"`));
+    assert.match(html, /data-pop="\/my-site\/frag\/[^"]+"/);
+    assert.match(html, /srcset="\/my-site\/assets\/img\//);
+  });
+
+  test("every integrity value matches its file", () => {
+    for (const page of PAGES) assert.ok(checkIntegrity(out, read(out, page), basePath) > 5);
+  });
+
+  test("puts the base path in the search index and the service worker", () => {
+    const index = JSON.parse(read(out, "search-index.json")) as { u: string }[];
+    assert.ok(index.length > 0 && index.every((e) => e.u.startsWith(`${basePath}/`)));
+    const sw = read(out, "sw.js");
+    const precache = JSON.parse(/^const PRECACHE = (.*);$/m.exec(sw)?.[1] ?? "[]") as string[];
+    assert.ok(precache.includes(`${basePath}/`) && precache.every((u) => u.startsWith(`${basePath}/`)));
+    assert.ok(sw.includes(`const BASE_PATH = "${basePath}";`));
+  });
+
+  test("puts the base path in front of root addresses in the CSS", async () => {
+    const config = makeSite(
+      { "style.css": "body { background: url(/bg.png); }\n.cdn { background: url(//cdn.example.com/a.png); }\n", "static/bg.png": "png" },
+      { basePath, css: { entry: "style.css" } },
+    );
+    const built = await build(config, { quiet: true });
+    assert.deepEqual(built.errors, []);
+    const css = read(config.out, built.outputs.find((o) => /^assets\/style-[0-9a-f]{10}\.css$/.test(o))!);
+    assert.match(css, /url\("?\/my-site\/bg\.png"?\)/);
+    assert.match(css, /url\("?\/\/cdn\.example\.com\/a\.png"?\)/);
+  });
+
+  test("leaves other addresses as they are", () => {
+    const html = `<a href="/a.html">a</a> <a href='/b.html'>b</a> <a href="//cdn.example.com/c">c</a> <a href="#d">d</a> <a href="mailto:e@example.com">e</a> <img srcset="/f-400.jpg 400w, https://example.com/g.jpg 800w">`;
+    assert.equal(
+      withBasePath(html, basePath),
+      `<a href="/my-site/a.html">a</a> <a href='/my-site/b.html'>b</a> <a href="//cdn.example.com/c">c</a> <a href="#d">d</a> <a href="mailto:e@example.com">e</a> <img srcset="/my-site/f-400.jpg 400w, https://example.com/g.jpg 800w">`,
+    );
+    assert.equal(withBasePath(html, ""), html);
+  });
+
+  test("a base path that is not a path is an error", async () => {
+    const result = await build(makeSite({}, { basePath: "https://example.com/my-site" }), { check: true, quiet: true });
+    process.exitCode = 0;
+    assert.equal(result.errors.length, 1);
+    assert.match(result.errors[0], /^configuration: basePath ".*" must be a path/);
+  });
+
+  test("the local server serves the site under the base path", async () => {
+    const server = serve({ ...site, out, basePath }, { port: 0, quiet: true });
+    await once(server, "listening");
+    const { port } = server.address() as AddressInfo;
+    try {
+      const at = (path: string) => fetch(`http://127.0.0.1:${port}${path}`, { redirect: "manual" });
+      const root = await at("/");
+      assert.equal(root.status, 302);
+      assert.equal(root.headers.get("location"), `${basePath}/`);
+      const home = await at(`${basePath}/`);
+      assert.equal(home.status, 200);
+      assert.ok((await home.text()).includes(`href="${basePath}/article.html"`));
+      assert.equal((await at(`${basePath}/article.html?x=1`)).status, 200);
+      assert.equal((await at("/article.html")).status, 404);
+    } finally {
+      server.close();
+    }
   });
 });
 

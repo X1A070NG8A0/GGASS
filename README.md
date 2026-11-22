@@ -90,6 +90,7 @@ All settings except `name` are optional.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `name` | | The site name, in the header and the page titles |
+| `basePath` | `""` | The path of the site on its host, for example `"/my-site"`. See "A site under a path". |
 | `lang` | `"en"` | The language of the pages |
 | `nav` | `[]` | The header links, as `{ href, label }` |
 | `footer` | none | HTML at the bottom of each page |
@@ -110,6 +111,33 @@ All settings except `name` are optional.
 | `serve` | `{ port: 4000, host: "127.0.0.1" }` | The address of the server of `run(site)` |
 
 `src/config.ts` describes each setting.
+
+### A site under a path
+
+Some hosts serve a site under a path, not at the root of the host. For
+example, a GitHub Pages project site is at `https://user.github.io/my-site/`.
+For a site of this type, set `basePath`:
+
+```ts
+export const site = defineSite({ name: "My site", basePath: "/my-site" });
+```
+
+Pagedefs, templates and `nav` still name addresses from `/`, for example
+`/guide/`. The build checks the links with these addresses. Then it puts the
+base path in front of each root address in the output. It does this in the
+URL attributes of the HTML (`href`, `src`, `srcset`, `action` and others),
+in each `url()` of the CSS, in the import map, in the search index and in
+the service worker. The files in the output folder stay where they are,
+because the host serves the folder under the path.
+
+Some addresses are not in a URL attribute, for example an address in a
+script. A template writes these with `site.config.basePath`. Browser code
+in a component finds the site root from its own address, because each
+module is in `assets/`: `new URL("../search.html", import.meta.url)`. The
+`page` hooks of build steps get the addresses without the base path.
+
+With `--serve`, the local server serves the site under the base path, and
+`/` goes to the base path.
 
 ## Pages
 

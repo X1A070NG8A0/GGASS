@@ -37,7 +37,7 @@ import { pageImages } from "./assets/images.ts";
 import { buildJs, buildServiceWorker, type Scripts } from "./assets/js.ts";
 import { findComponents } from "./components.ts";
 import { resolveConfig, type ResolvedConfig, type SiteConfig } from "./config.ts";
-import { target, textOf } from "./html.ts";
+import { target, textOf, withBasePath } from "./html.ts";
 import { raw as rawHtml } from "./jsx-runtime.ts";
 import { listStatic, loadData, loadPagedefs, type ParseCache } from "./pagedefs.ts";
 import { any, isChildren, optional, parseFields, text, type Fields, type Issue } from "./schema.ts";
@@ -66,10 +66,10 @@ export type BuildResult = {
 const pageText = (page: RenderedPage) =>
   textOf(page.body.replace(/<section class="endnotes"[\s\S]*?<\/section>/, "").replace(/<a class="note-(?:ref|num)"[^>]*>\d+<\/a>/g, ""));
 
-function importMap(js: Scripts, css: Map<string, Asset>): string {
+function importMap(js: Scripts, css: Map<string, Asset>, basePath: string): string {
   const map = {
-    imports: Object.fromEntries([...[...js.modules].map(([tag, a]) => [`ggass/${tag}`, a.url]), ...[...css].map(([tag, a]) => [`ggass/${tag}.css`, a.url])]),
-    integrity: Object.fromEntries([...js.files, ...css.values()].map((f) => [f.url, f.integrity])),
+    imports: Object.fromEntries([...[...js.modules].map(([tag, a]) => [`ggass/${tag}`, basePath + a.url]), ...[...css].map(([tag, a]) => [`ggass/${tag}.css`, basePath + a.url])]),
+    integrity: Object.fromEntries([...js.files, ...css.values()].map((f) => [basePath + f.url, f.integrity])),
   };
   return `<script type="importmap">${JSON.stringify(map)}</script>`;
 }
@@ -135,6 +135,8 @@ export class Builder {
       return { ok, errors, warnings, pages: rendered.size, outputs: [...outputs.keys()].sort(), changed, timings: timings.list };
     };
     if (!config.name) errors.push("configuration: no site name");
+    if (config.basePath && !/^(\/[^/?#\s"'<>\\]+)+$/.test(config.basePath))
+      errors.push(`configuration: basePath "${config.basePath}" must be a path, such as "/my-site"`);
 
     const { templates, data, raw, statics } = await timings.run("load", async () => ({
       templates: await loadTemplates(config, errors),
@@ -304,7 +306,7 @@ export class Builder {
 
     await timings.run("layout", () => {
       const link = (a: Asset) => `<link rel="stylesheet" href="${a.url}" integrity="${a.integrity}">`;
-      const shared = [...fonts.preloads, css.main ? link(css.main) : "", importMap(js, css.components)].filter(Boolean);
+      const shared = [...fonts.preloads, css.main ? link(css.main) : "", importMap(js, css.components, config.basePath)].filter(Boolean);
       const loader = `<script type="module" src="${js.loader.url}" integrity="${js.loader.integrity}"></script>`;
       const integrityByUrl = new Map(js.files.map((f) => [f.url, f.integrity]));
       const perPage = (html: string) => {
@@ -336,18 +338,18 @@ export class Builder {
           return;
         }
         const head = [...shared, ...perPage(html), loader, ...ctx.head].join("\n");
-        ctx.emit(page.url, html.replace("<!--head-->", head));
-        if (popTargets.has(page.url)) ctx.emit(`frag${page.url}`, page.body);
+        ctx.emit(page.url, withBasePath(html.replace("<!--head-->", head), config.basePath));
+        if (popTargets.has(page.url)) ctx.emit(`frag${page.url}`, withBasePath(page.body, config.basePath));
       }
       const listed = [...rendered.values()].filter((p) => !p.unlisted);
-      ctx.emit("search-index.json", JSON.stringify(listed.map((p) => ({ k: p.kind, t: p.title, x: texts.get(p.url), u: p.url }))));
+      ctx.emit("search-index.json", JSON.stringify(listed.map((p) => ({ k: p.kind, t: p.title, x: texts.get(p.url), u: config.basePath + p.url }))));
     });
     if (errors.length) return finish(false);
 
     if (config.offline) {
       const assets: Asset[] = [...(css.main ? [css.main] : []), ...css.components.values(), ...js.files];
       const precache = ["/", "/search.html", "/search-index.json", ...assets.map((a) => a.url), ...[...outputs.keys()].filter((k) => k.startsWith("assets/fonts/")).map((k) => `/${k}`)];
-      await timings.run("offline", () => buildServiceWorker(ctx, precache));
+      await timings.run("offline", () => buildServiceWorker(ctx, precache.map((u) => config.basePath + u)));
     }
     for (const f of statics) ctx.emit(f.url, { file: f.path });
 

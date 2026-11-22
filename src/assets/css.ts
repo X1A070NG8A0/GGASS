@@ -36,12 +36,16 @@ import { esbuildErrors } from "./optional.ts";
 
 const BASE_CSS = join(import.meta.dirname, "..", "style", "ggass.css");
 
-// Root-relative URLs stay as written. esbuild's `external: ["/*"]` also
-// matches resolved file paths, so this is a plugin.
-const rootRelative: esbuild.Plugin = {
+// Root-relative URLs stay as written, with the base path in front.
+// esbuild's `external: ["/*"]` also matches resolved file paths, so this is
+// a plugin.
+const rootRelative = (basePath: string): esbuild.Plugin => ({
   name: "root-relative",
-  setup: (b) => void b.onResolve({ filter: /^\// }, (args) => (args.kind === "entry-point" ? undefined : { path: args.path, external: true })),
-};
+  setup: (b) =>
+    void b.onResolve({ filter: /^\// }, (args) =>
+      args.kind === "entry-point" ? undefined : { path: args.path.startsWith("//") ? args.path : basePath + args.path, external: true },
+    ),
+});
 
 const FILE_LOADERS: Record<string, esbuild.Loader> = Object.fromEntries(
   ["woff2", "woff", "ttf", "otf", "png", "jpg", "jpeg", "gif", "svg", "webp", "avif"].map((ext) => [`.${ext}`, "file"]),
@@ -69,7 +73,7 @@ async function bundleCss(ctx: BuildContext, name: string, files: string[], extra
       minify: config.css.minify,
       sourcemap: config.css.sourcemap ? "external" : false,
       outfile: join(config.out, "assets", `${name}.css`),
-      plugins: [rootRelative],
+      plugins: [rootRelative(config.basePath)],
       loader: FILE_LOADERS,
       assetNames: config.fingerprint ? "[name]-[hash]" : "[name]",
       target: config.css.targets,
