@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { copyFileSync, mkdirSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { buildComponentCss, buildCss } from "./assets/css.ts";
 import { buildFonts, type Fonts } from "./assets/fonts.ts";
 import { shortHash } from "./assets/hash.ts";
@@ -137,6 +137,12 @@ export class Builder {
     if (!config.name) errors.push("configuration: no site name");
     if (config.basePath && !/^(\/[^/?#\s"'<>\\]+)+$/.test(config.basePath))
       errors.push(`configuration: basePath "${config.basePath}" must be a path, such as "/my-site"`);
+    // The first build deletes the output folder.
+    const sources = [config.root, config.pagedef, config.data, config.template, config.component, config.static];
+    if (sources.some((dir) => dir === config.out || dir.startsWith(config.out + sep))) {
+      errors.push(`configuration: the output folder ${config.out} holds the site, and each build deletes it. Choose another out.`);
+      return finish(false);
+    }
 
     const { templates, data, raw, statics } = await timings.run("load", async () => ({
       templates: await loadTemplates(config, errors),
@@ -187,7 +193,11 @@ export class Builder {
 
     // A page renders again only if its pagedef, its template, or a page or
     // data file that it read changed.
-    const pageVersion = (url: string) => (raw.has(url) ? `${raw.get(url)!.version}.${templateOf.get(url)?.version}` : "none");
+    // A page holds its child pages, and their templates shape their values.
+    const pageVersion = (url: string): string => {
+      const r = raw.get(url);
+      return r ? [`${r.version}.${templateOf.get(url)?.version}`, ...r.children.map(pageVersion)].join(",") : "none";
+    };
     const allPages = shortHash([...raw.keys()].map((u) => `${u} ${pageVersion(u)}`).join("\n"));
     const allData = shortHash([...data.versions].map(([k, v]) => `${k} ${v}`).join("\n"));
     const depVersion = (dep: string) => {

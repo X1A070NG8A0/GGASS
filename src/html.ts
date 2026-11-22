@@ -53,16 +53,24 @@ export function withBasePath(html: string, basePath: string): string {
     });
 }
 
-// &amp; must be decoded last, or the text "&amp;lt;" becomes "<".
+const NAMED: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", shy: "",
+  mdash: "—", ndash: "–", hellip: "…", lsquo: "‘", rsquo: "’", ldquo: "“", rdquo: "”", laquo: "«", raquo: "»",
+  bull: "•", middot: "·", times: "×", divide: "÷", deg: "°", plusmn: "±", micro: "µ", frac12: "½", frac14: "¼", frac34: "¾",
+  copy: "©", reg: "®", trade: "™", sect: "§", para: "¶", larr: "←", rarr: "→", uarr: "↑", darr: "↓",
+};
+
+// One pass, so that the text "&amp;lt;" becomes "&lt;", not "<". A name that
+// the table does not know stays as it is.
+const decodeEntities = (s: string): string =>
+  s.replace(/&(?:#(\d+)|#x([0-9a-f]+)|([a-z][a-z0-9]*));/gi, (all, dec: string | undefined, hex: string | undefined, name: string | undefined) => {
+    if (name) return NAMED[name] ?? all;
+    const code = dec ? Number(dec) : parseInt(hex!, 16);
+    return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff) ? String.fromCodePoint(code) : all;
+  });
+
 export const textOf = (html: string): string =>
-  html
-    .replace(/<(script|style)\b[\s\S]*?<\/\1>|<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
+  decodeEntities(html.replace(/<(script|style)\b[\s\S]*?<\/\1>|<[^>]+>/g, " "))
     .replace(/\s+/g, " ")
     .trim();
 

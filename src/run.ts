@@ -72,6 +72,12 @@ export async function run(site: SiteConfig, args: string[] = process.argv.slice(
     return;
   }
   if (values.help) return void console.log(USAGE);
+  const port = values.port === undefined ? undefined : Number(values.port);
+  if (port !== undefined && !(Number.isInteger(port) && port >= 0 && port < 65536)) {
+    console.error(`--port must be a number from 0 to 65535\n\n${USAGE}`);
+    process.exitCode = 2;
+    return;
+  }
   const builder = new Builder(site);
   const quiet = !!values.quiet;
   if (values.check) return void (await builder.build({ check: true, quiet }));
@@ -80,7 +86,7 @@ export async function run(site: SiteConfig, args: string[] = process.argv.slice(
   if (!values.serve && !values.watch) return;
 
   let server: SiteServer | undefined;
-  if (values.serve) server = serve(site, { port: values.port ? Number(values.port) : undefined, host: values.host });
+  if (values.serve) server = serve(site, { port, host: values.host });
   const { config } = builder;
   const ignored = [config.out, config.cache, join(config.root, "node_modules"), join(config.root, ".git")].map((d) => d + sep);
   let timer: NodeJS.Timeout | undefined;
@@ -89,17 +95,26 @@ export async function run(site: SiteConfig, args: string[] = process.argv.slice(
   const rebuild = async () => {
     if (running) return void (again = true);
     running = true;
-    do {
-      again = false;
-      const started = performance.now();
-      process.exitCode = 0;
-      const result = await builder.build({ quiet: true });
-      if (result.ok) {
-        if (!quiet) console.log(`Rebuilt in ${formatMs(performance.now() - started)}: ${result.changed} file(s) changed.`);
-        if (result.changed) server?.reload();
-      }
-    } while (again);
-    running = false;
+    try {
+      do {
+        again = false;
+        const started = performance.now();
+        process.exitCode = 0;
+        // A throw here would stop the watch for good, so it is only a message.
+        try {
+          const result = await builder.build({ quiet: true });
+          if (result.ok) {
+            if (!quiet) console.log(`Rebuilt in ${formatMs(performance.now() - started)}: ${result.changed} file(s) changed.`);
+            if (result.changed) server?.reload();
+          }
+        } catch (e) {
+          console.error(`Build failed: ${(e as Error).stack ?? String(e)}`);
+          process.exitCode = 1;
+        }
+      } while (again);
+    } finally {
+      running = false;
+    }
   };
   const changed = (dir: string) => (_event: string, name: string | null) => {
     const path = join(dir, name ?? "");

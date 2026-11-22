@@ -29,7 +29,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export const integrity = (data: string | Uint8Array): string => `sha384-${createHash("sha384").update(data).digest("base64")}`;
@@ -70,7 +70,11 @@ function job(dir: string, key: string, make: () => Promise<Uint8Array>, read: bo
       } catch {
         const data = Buffer.from(await make());
         mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(path, data);
+        // A build stopped during the write must not leave half a file that
+        // later builds take as finished.
+        const temp = `${path}.${process.pid}.tmp`;
+        writeFileSync(temp, data);
+        renameSync(temp, path);
         return data;
       }
     })();

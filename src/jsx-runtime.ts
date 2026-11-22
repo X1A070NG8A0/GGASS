@@ -59,7 +59,9 @@ function children(c: Child, rawText = false): string {
   if (c === null || c === undefined || typeof c === "boolean") return "";
   if (c instanceof Html) return c.value;
   if (Array.isArray(c)) return (c as readonly Child[]).map((x) => children(x, rawText)).join("");
-  return rawText ? String(c) : escape(String(c));
+  // "</script" in a value would end the element early. "<\/" means the same in
+  // JavaScript strings and CSS.
+  return rawText ? String(c).replace(/<\/(script|style)/gi, "<\\/$1") : escape(String(c));
 }
 
 function attributes(props: Props): string {

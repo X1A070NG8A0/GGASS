@@ -393,6 +393,24 @@ describe("components", () => {
   });
 });
 
+describe("templates", () => {
+  test("a value in a script cannot end the script", async () => {
+    const s = makeSite({
+      "template/data.tsx": `import { template, text } from "ggass";\nexport default template({ fields: { note: text() }, render: (p) => <script type="application/json">{JSON.stringify({ note: p.note })}</script> });\n`,
+      "pagedef/a.yaml": 'title: A\ntemplate: data\nnote: "</script><b>x"\n',
+    });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    const json = /<script type="application\/json">(.*?)<\/script>/.exec(read(s.out, "a.html"))?.[1];
+    assert.deepEqual(JSON.parse(json!), { note: "</script><b>x" });
+  });
+
+  test("a heading entity shows once decoded in the contents", async () => {
+    const s = makeSite({ "pagedef/a.yaml": "title: A\nbody: <h2>One &mdash; two</h2><h2>B</h2><h2>C</h2>\n" });
+    assert.deepEqual((await build(s, { quiet: true })).errors, []);
+    assert.ok(read(s.out, "a.html").includes(">One — two</a>"));
+  });
+});
+
 describe("watch builds", () => {
   test("render again only the pages whose inputs changed, and write only changed files", async () => {
     const s = makeSite({
@@ -431,6 +449,19 @@ describe("watch builds", () => {
 describe("check", () => {
   test("text keeps an escaped entity escaped", () => {
     assert.equal(textOf("a &amp;lt;b&amp;gt; &lt;c&gt; &amp;amp;"), "a &lt;b&gt; <c> &amp;");
+  });
+
+  test("text decodes named and numeric entities, and keeps unknown ones", () => {
+    assert.equal(textOf("A&mdash;B &#8217; &#x2192; &nosuch; &#0;"), "A—B ’ → &nosuch; &#0;");
+  });
+
+  test("an output folder that holds the site is an error, and nothing is deleted", async () => {
+    const s = makeSite({});
+    const result = await build({ ...s, out: "." }, { quiet: true });
+    process.exitCode = 0;
+    assert.equal(result.ok, false);
+    assert.match(result.errors[0], /holds the site/);
+    assert.ok(existsSync(join(s.root, "pagedef", "index.yaml")));
   });
 
   test("reports a broken link and writes nothing", async () => {
